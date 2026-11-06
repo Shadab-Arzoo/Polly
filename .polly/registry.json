@@ -1,0 +1,273 @@
+{
+  "project": "ReelCount",
+  "updated": "2026-11-07",
+  "repository": {
+    "workspace": "/home/zbss/Work/Polly/Polly",
+    "remote": "https://github.com/Shadab-Arzoo/Polly.git",
+    "state": "empty_repo_owner_approved_for_reelcount_local_baseline",
+    "implementation_worktrees_available": true
+  },
+  "tasks": [
+    {
+      "id": "RC-001",
+      "title": "Inspect repository and Git state",
+      "agent": "agy",
+      "status": "DONE",
+      "priority": "P0",
+      "progress": "Confirmed empty repository; no files, commits, or remote refs; no conventions",
+      "activity": "Read-only inspection completed",
+      "dependencies": [],
+      "files": [],
+      "tests": "not_applicable",
+      "blockers": []
+    },
+    {
+      "id": "RC-002",
+      "title": "Assess AccessibilityService feasibility and prototype plan",
+      "agent": "codex",
+      "status": "DONE",
+      "priority": "P0",
+      "progress": "Event-based prototype is measurable; accuracy is unproven and no device tests were run",
+      "activity": "Read-only technical feasibility report completed",
+      "dependencies": [],
+      "files": [],
+      "tests": "not_applicable",
+      "blockers": [
+        "Requires physical devices and target app versions for empirical validation"
+      ]
+    },
+    {
+      "id": "RC-003",
+      "title": "Confirm repository/bootstrap target and usable Git base",
+      "agent": "project_owner",
+      "status": "DONE",
+      "priority": "P0",
+      "progress": "Owner approved using this checkout for ReelCount and a local documentation baseline commit",
+      "activity": "Bootstrap path confirmed; no remote pushes until independent review",
+      "dependencies": [
+        "RC-001"
+      ],
+      "files": [
+        "README.md",
+        ".gitignore",
+        "ROADMAP.md",
+        "docs/architecture.md",
+        ".polly/registry.json"
+      ],
+      "tests": "not_applicable",
+      "blockers": [
+        "Initial commit approved; no remote pushes until independent review"
+      ]
+    },
+    {
+      "id": "RC-004",
+      "title": "Approve limited prototype disclosure/consent and event scope",
+      "agent": "project_owner+technical_lead",
+      "status": "DONE",
+      "priority": "P0",
+      "progress": "Owner approved opt-in service, four-app filtering, ephemeral event type/package/timestamp only; no text/tree/screenshots/persistence",
+      "activity": "Limited scope approval received",
+      "dependencies": [
+        "RC-002",
+        "RC-003"
+      ],
+      "files": [
+        "docs/architecture.md"
+      ],
+      "tests": "not_applicable",
+      "blockers": [
+        "Production tracking and scope expansion remain unapproved"
+      ]
+    },
+    {
+      "id": "RC-005",
+      "title": "Define architecture, event contract, schema, and support matrix",
+      "agent": "codex_after_approval",
+      "status": "IN REVIEW",
+      "priority": "P1",
+      "progress": "Provisional module boundaries and prototype event allowlist documented; persistence and support details remain open",
+      "activity": "Architecture document created pending independent review",
+      "dependencies": [
+        "RC-003",
+        "RC-004"
+      ],
+      "files": [
+        "docs/architecture.md"
+      ],
+      "tests": "not_applicable",
+      "blockers": [
+        "Database and production support decisions await prototype data"
+      ]
+    },
+    {
+      "id": "RC-006",
+      "title": "Build event-only Android tracking prototype",
+      "agent": "codex",
+      "status": "READY",
+      "priority": "P1",
+      "progress": "Approved scope and local base commit allow an isolated implementation worktree",
+      "activity": "Ready for Codex implementation dispatch",
+      "dependencies": [
+        "RC-003",
+        "RC-004",
+        "RC-005"
+      ],
+      "files": [
+        "Kotlin prototype files TBD"
+      ],
+      "tests": "not_started",
+      "blockers": [
+        "Physical-device validation requires owner/device tester"
+      ]
+    },
+    {
+      "id": "RC-007",
+      "title": "Validate prototype in four target applications",
+      "agent": "project_owner_device_tester+codex",
+      "status": "BACKLOG",
+      "priority": "P1",
+      "progress": "Test dimensions outlined; no device runs",
+      "activity": "Awaiting prototype",
+      "dependencies": [
+        "RC-006"
+      ],
+      "files": [],
+      "tests": "not_started",
+      "blockers": [
+        "Physical devices and installed target applications"
+      ]
+    },
+    {
+      "id": "RC-008",
+      "title": "React Native dashboard and navigation",
+      "agent": "agy",
+      "status": "BACKLOG",
+      "priority": "P2",
+      "progress": "Not started",
+      "activity": "Wait for architecture and disjoint file ownership",
+      "dependencies": [
+        "RC-003",
+        "RC-005",
+        "RC-007"
+      ],
+      "files": [],
+      "tests": "not_started",
+      "blockers": [
+        "No project base; interface depends on validated tracking"
+      ]
+    },
+    {
+      "id": "RC-009",
+      "title": "Local persistence and analytics",
+      "agent": "codex_or_agy",
+      "status": "BACKLOG",
+      "priority": "P2",
+      "progress": "Not started",
+      "activity": "Wait for schema design",
+      "dependencies": [
+        "RC-003",
+        "RC-005",
+        "RC-007"
+      ],
+      "files": [],
+      "tests": "not_started",
+      "blockers": [
+        "No base and data contract not defined"
+      ]
+    },
+    {
+      "id": "RC-010",
+      "title": "Settings, daily limits, reminders, permissions, privacy screens",
+      "agent": "agy",
+      "status": "BACKLOG",
+      "priority": "P2",
+      "progress": "Not started",
+      "activity": "Wait for disclosure and architecture decisions",
+      "dependencies": [
+        "RC-003",
+        "RC-004",
+        "RC-005"
+      ],
+      "files": [],
+      "tests": "not_started",
+      "blockers": [
+        "No project base; consent requirements unresolved"
+      ]
+    },
+    {
+      "id": "RC-011",
+      "title": "Integration, test/build gates, independent reviews",
+      "agent": "codex+different_vendor_reviewer",
+      "status": "BACKLOG",
+      "priority": "P1",
+      "progress": "Not started",
+      "activity": "Await implementation PRs",
+      "dependencies": [
+        "RC-006",
+        "RC-007",
+        "RC-008",
+        "RC-009",
+        "RC-010"
+      ],
+      "files": [],
+      "tests": "not_started",
+      "blockers": [
+        "Requires PRs and second available vendor"
+      ]
+    },
+    {
+      "id": "RC-012",
+      "title": "Physical-device lifecycle, battery, release/policy validation",
+      "agent": "project_owner_device_tester+codex",
+      "status": "BACKLOG",
+      "priority": "P1",
+      "progress": "Not started",
+      "activity": "Wait for prototype and integration",
+      "dependencies": [
+        "RC-007",
+        "RC-011"
+      ],
+      "files": [],
+      "tests": "not_started",
+      "blockers": [
+        "Device access and current Play policy review"
+      ]
+    }
+  ],
+  "agent_handles": [
+    {
+      "agent": "agy",
+      "title": "inspect-reelcount-repository",
+      "conversation_id": "32fe9bf331234628a475d66470451b80",
+      "status": "completed"
+    },
+    {
+      "agent": "codex",
+      "title": "reelcount-tracking-feasibility-plan",
+      "conversation_id": "5723bc406377487d841a4a82e19cc01d",
+      "status": "completed"
+    }
+  ],
+  "board_interface": "Markdown and JSON files only; no live Jira-style board API or activity event stream is exposed in this session.",
+  "owner_approvals": [
+    {
+      "decision": "Use empty checkout for ReelCount and create local documentation baseline/initial commit",
+      "status": "approved",
+      "condition": "Do not push to remote until independent review"
+    },
+    {
+      "decision": "Limited opt-in AccessibilityService feasibility prototype",
+      "status": "approved",
+      "scope": [
+        "filter to four supported apps",
+        "ephemeral event type, package name, timestamp only"
+      ],
+      "excluded": [
+        "text",
+        "accessibility UI tree",
+        "screenshots",
+        "persisted traces"
+      ]
+    }
+  ]
+}
