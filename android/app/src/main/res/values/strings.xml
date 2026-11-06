@@ -1,0 +1,5 @@
+<resources>
+    <string name="app_name">ReelCount</string>
+    <string name="accessibility_service_label">ReelCount feasibility prototype</string>
+    <string name="accessibility_service_description">With your permission, temporarily observes only event type, app package, and event time for four provisionally configured video apps. It does not read screen content or save traces. Transition detection is experimental and counts are not reliable.</string>
+</resources>
