@@ -41,12 +41,12 @@ Statuses reflect actual dispatch and completion reports. No implementation agent
 | RC-003 | Confirm repository/bootstrap target and usable Git base | Project owner | DONE | P0 | Owner approved using this empty checkout for ReelCount and a local documentation baseline commit | RC-001 | README.md, .gitignore, ROADMAP.md, docs/architecture.md, .polly/registry.json | Not applicable | Initial commit approved; no remote pushes until independent review |
 | RC-004 | Approve limited prototype disclosure/consent and event scope | Project owner + technical lead | DONE | P0 | Owner approved opt-in service, four-app filtering, ephemeral event type/package/timestamp only; no text/tree/screenshots/persistence | RC-002, RC-003 | docs/architecture.md | Not applicable | Production tracking and scope expansion remain unapproved |
 | RC-005 | Define architecture, event contract, schema, and support matrix | Technical lead + Codex | IN REVIEW | P1 | Provisional module boundaries and prototype event allowlist documented; persistence and support details remain open | RC-003, RC-004 | docs/architecture.md | Not applicable | Database and production support decisions await prototype data |
-| RC-006 | Build event-only Android tracking prototype | Codex | READY | P1 | Approved scope and local base commit will allow isolated implementation worktree | RC-003, RC-004, RC-005 | Kotlin prototype files TBD | Not started | Physical-device validation still requires owner/device tester |
+| RC-006 | Build event-only Android tracking prototype | Codex | BLOCKED | P1 | Local implementation commit complete; JS lint/typecheck/test and Android unit/build gates pass; independent reviewer failed to launch | RC-003, RC-004, RC-005 | 49 paths on branch `polly/rc-006-codex`; see local commit `2d126bb8c07af01ae93f26d0b7e449703fa1b57d` | PASS: JS and Android build/unit gates; device behavior unverified | No available different-vendor reviewer; no device transition validation |
 | RC-007 | Prototype validation in Instagram, TikTok, Snapchat Spotlight, YouTube Shorts | Owner/device tester + Codex | BACKLOG | P1 | Test matrix defined; no device runs yet | RC-006 | Test notes/results TBD | Not started | Physical devices and installed target apps |
 | RC-008 | React Native dashboard and navigation | Antigravity (agy) | BACKLOG | P2 | Not started; ownership/interface to be set after architecture | RC-003, RC-005, RC-007 | TBD | Not started | No project base; depends on interfaces |
 | RC-009 | Local persistence and daily/weekly/monthly analytics | Codex or Antigravity (agy) | BACKLOG | P2 | Not started; schema and ownership to be set in design | RC-003, RC-005, RC-007 | TBD | Not started | No project base; depends on validated data contract |
 | RC-010 | Per-app settings, limits, reminders, permission and privacy screens | Antigravity (agy) | BACKLOG | P2 | Not started; disclosure decision required | RC-003, RC-004, RC-005 | TBD | Not started | No project base; consent requirements unresolved |
-| RC-011 | Integration, test/build gates, and independent reviews | Codex + different-vendor reviewer | BACKLOG | P1 | Not started | RC-006 through RC-010 | TBD | Not started | Requires PRs and second available vendor |
+| RC-011 | Integration, test/build gates, and independent reviews | Codex + different-vendor reviewer | BLOCKED | P1 | Local gates pass; Antigravity review dispatch failed before the reviewer received the task | RC-006 through RC-010 | Diff snapshot `/tmp/reelcount-rc006.diff` | JS and Android gates passed; physical-device checks pending | Only available independent reviewer failed to launch; no push/PR until review decision |
 | RC-012 | Physical-device lifecycle, battery, and release/policy validation | Owner/device tester + Codex | BACKLOG | P1 | Not started | RC-007, RC-011 | Results/docs TBD | Not started | Device access and current Play policy review |
 
 ## Feasibility test matrix
@@ -60,6 +60,10 @@ For each target app and tested app version, independently label each manual acti
 - Report per-app precision, recall, duplicate and missed transitions, event-to-count latency, and event volume.
 
 Record device model, Android version, app version, and test configuration. Keep prototype traces ephemeral and avoid content-bearing fields. Do not combine results across apps or versions in a way that hides failures.
+
+## Separate Polly harness request
+
+The owner also requested a GitHub Copilot CLI harness as a Polly worker. This checkout contains ReelCount, not Polly orchestration/runner source, and the session dispatcher does not expose a Copilot worker. A separate investigation found that implementing this requires the actual Polly orchestrator/runner repository and host CLI/auth setup. The correct Polly source location is pending from the owner.
 
 ## Project-management interface
 

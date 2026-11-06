@@ -83,10 +83,10 @@
       "id": "RC-005",
       "title": "Define architecture, event contract, schema, and support matrix",
       "agent": "codex_after_approval",
-      "status": "IN REVIEW",
+      "status": "DONE",
       "priority": "P1",
       "progress": "Provisional module boundaries and prototype event allowlist documented; persistence and support details remain open",
-      "activity": "Architecture document created pending independent review",
+      "activity": "Provisional architecture and prototype data boundary documented and independently reviewed; one board mismatch corrected",
       "dependencies": [
         "RC-003",
         "RC-004"
@@ -103,22 +103,26 @@
       "id": "RC-006",
       "title": "Build event-only Android tracking prototype",
       "agent": "codex",
-      "status": "READY",
+      "status": "BLOCKED",
       "priority": "P1",
-      "progress": "Approved scope and local base commit allow an isolated implementation worktree",
-      "activity": "Ready for Codex implementation dispatch",
+      "progress": "Local implementation complete; JS lint/typecheck/test and Android unit/build gates pass; no independent review",
+      "activity": "Waiting at cross-vendor review gate; no push or PR",
       "dependencies": [
         "RC-003",
         "RC-004",
         "RC-005"
       ],
       "files": [
-        "Kotlin prototype files TBD"
+        "49 changed paths; see diff snapshot /tmp/reelcount-rc006.diff"
       ],
-      "tests": "not_started",
+      "tests": "PASS: npm run lint; npm run typecheck; npm test -- --runInBand (1 suite/1 test); ANDROID_HOME=/home/zbss/Android/Sdk ANDROID_SDK_ROOT=/home/zbss/Android/Sdk JAVA_HOME=Temurin-17 ./gradlew :app:testDebugUnitTest :app:assembleDebug --console=plain (BUILD SUCCESSFUL)",
       "blockers": [
-        "Physical-device validation requires owner/device tester"
-      ]
+        "Independent Antigravity reviewer failed before receiving prompt; no different vendor currently available",
+        "Physical-device transition validation not run"
+      ],
+      "worktree": "/home/zbss/Work/Polly/Polly/.worktrees/rc-006-codex",
+      "branch": "polly/rc-006-codex",
+      "commit": "2d126bb8c07af01ae93f26d0b7e449703fa1b57d"
     },
     {
       "id": "RC-007",
@@ -198,10 +202,10 @@
       "id": "RC-011",
       "title": "Integration, test/build gates, independent reviews",
       "agent": "codex+different_vendor_reviewer",
-      "status": "BACKLOG",
+      "status": "BLOCKED",
       "priority": "P1",
-      "progress": "Not started",
-      "activity": "Await implementation PRs",
+      "progress": "Local gates pass; independent review task failed to launch",
+      "activity": "Awaiting human decision or another review-capable vendor",
       "dependencies": [
         "RC-006",
         "RC-007",
@@ -210,9 +214,9 @@
         "RC-010"
       ],
       "files": [],
-      "tests": "not_started",
+      "tests": "JS and Android build/unit gates passed; device checks pending",
       "blockers": [
-        "Requires PRs and second available vendor"
+        "Only independent reviewer failed to start; no push/PR until review gate is resolved"
       ]
     },
     {
@@ -246,6 +250,41 @@
       "title": "reelcount-tracking-feasibility-plan",
       "conversation_id": "5723bc406377487d841a4a82e19cc01d",
       "status": "completed"
+    },
+    {
+      "agent": "agy",
+      "title": "android-tracking-poc",
+      "conversation_id": "b8ab062ab03640b88c71d38bf17601cf",
+      "status": "completed_without_deliverable",
+      "latest_event": "Two turns ended with waiting messages during toolchain/package verification; assigned worktree was clean; no files or results delivered"
+    },
+    {
+      "agent": "codex",
+      "title": "review-project-baseline",
+      "conversation_id": "02d5296dda9d486694601f4e56e0a2e6",
+      "status": "completed"
+    },
+    {
+      "agent": "codex",
+      "title": "android-tracking-poc-codex",
+      "conversation_id": "10e970f830e44577baa069646eed759d",
+      "status": "completed",
+      "commit": "2d126bb8c07af01ae93f26d0b7e449703fa1b57d",
+      "result": "Implemented locally; no push/PR; gate runs recorded"
+    },
+    {
+      "agent": "agy",
+      "title": "review-android-tracking-poc",
+      "conversation_id": "27d2cd7532dc46359e10e8cd133fef49",
+      "status": "failed_to_start",
+      "reason": "Antigravity TUI could not render the submitted review prompt; reviewer did not receive task. Dropped for this run; no retry."
+    },
+    {
+      "agent": "agy",
+      "title": "review-android-tracking-poc",
+      "conversation_id": "27d2cd7532dc46359e10e8cd133fef49",
+      "status": "failed_to_start",
+      "reason": "Antigravity TUI could not render the submitted review prompt; reviewer did not receive task. Dropped for this run; no retry."
     }
   ],
   "board_interface": "Markdown and JSON files only; no live Jira-style board API or activity event stream is exposed in this session.",
@@ -267,6 +306,56 @@
         "accessibility UI tree",
         "screenshots",
         "persisted traces"
+      ]
+    }
+  ],
+  "worktrees": [
+    {
+      "task_id": "RC-006",
+      "path": "/home/zbss/Work/Polly/Polly/.worktrees/rc-006",
+      "branch": "polly/rc-006",
+      "base": "d89af9b878d04bcac66691fc3e21ef44eb11b46a",
+      "status": "active"
+    },
+    {
+      "task_id": "RC-006",
+      "path": "/home/zbss/Work/Polly/Polly/.worktrees/rc-006-codex",
+      "branch": "polly/rc-006-codex",
+      "base": "d89af9b878d04bcac66691fc3e21ef44eb11b46a",
+      "status": "awaiting_review"
+    }
+  ],
+  "reviews": [
+    {
+      "title": "review-project-baseline",
+      "agent": "codex",
+      "conversation_id": "02d5296dda9d486694601f4e56e0a2e6",
+      "diff_path": "/tmp/reelcount-baseline.diff",
+      "base": "4b825dc642cb6eb9a060e54bf8d69288fbee4904",
+      "head": "d89af9b878d04bcac66691fc3e21ef44eb11b46a",
+      "status": "completed",
+      "result": "No blocking findings; one task-board status mismatch corrected"
+    },
+    {
+      "title": "review-android-tracking-poc",
+      "agent": "agy",
+      "conversation_id": "27d2cd7532dc46359e10e8cd133fef49",
+      "diff_path": "/tmp/reelcount-rc006.diff",
+      "base": "d89af9b878d04bcac66691fc3e21ef44eb11b46a",
+      "head": "2d126bb8c07af01ae93f26d0b7e449703fa1b57d",
+      "status": "failed_to_start",
+      "result": "Reviewer prompt was not delivered; no review performed"
+    }
+  ],
+  "external_requests": [
+    {
+      "title": "Add GitHub Copilot CLI harness as Polly worker",
+      "status": "BLOCKED",
+      "assigned": "project_owner",
+      "progress": "Read-only investigation confirms this checkout contains ReelCount, not Polly orchestration source; current dispatcher does not expose Copilot",
+      "blockers": [
+        "Need actual Polly orchestrator/runner repository path or URL",
+        "Host needs Copilot CLI installed and authenticated"
       ]
     }
   ]
