@@ -42,7 +42,7 @@
       "agent": "project_owner",
       "status": "DONE",
       "priority": "P0",
-      "progress": "Owner approved using this checkout for ReelCount and a local documentation baseline commit",
+      "progress": "Owner approved using this checkout for ReelCount; documentation baseline pushed to origin/main",
       "activity": "Bootstrap path confirmed; no remote pushes until independent review",
       "dependencies": [
         "RC-001"
@@ -55,9 +55,7 @@
         ".polly/registry.json"
       ],
       "tests": "not_applicable",
-      "blockers": [
-        "Initial commit approved; no remote pushes until independent review"
-      ]
+      "blockers": []
     },
     {
       "id": "RC-004",
@@ -103,10 +101,10 @@
       "id": "RC-006",
       "title": "Build event-only Android tracking prototype",
       "agent": "codex",
-      "status": "BLOCKED",
+      "status": "IN PROGRESS",
       "priority": "P1",
-      "progress": "Local implementation complete; JS lint/typecheck/test and Android unit/build gates pass; no independent review",
-      "activity": "Waiting at cross-vendor review gate; no push or PR",
+      "progress": "Owner authorized publication despite unavailable independent review; Codex asked to push feature branch and open draft PR",
+      "activity": "Publishing feature branch and opening draft PR; no merge",
       "dependencies": [
         "RC-003",
         "RC-004",
@@ -117,8 +115,7 @@
       ],
       "tests": "PASS: npm run lint; npm run typecheck; npm test -- --runInBand (1 suite/1 test); ANDROID_HOME=/home/zbss/Android/Sdk ANDROID_SDK_ROOT=/home/zbss/Android/Sdk JAVA_HOME=Temurin-17 ./gradlew :app:testDebugUnitTest :app:assembleDebug --console=plain (BUILD SUCCESSFUL)",
       "blockers": [
-        "Independent Antigravity reviewer failed before receiving prompt; no different vendor currently available",
-        "Physical-device transition validation not run"
+        "Independent review and physical-device transition validation remain pending"
       ],
       "worktree": "/home/zbss/Work/Polly/Polly/.worktrees/rc-006-codex",
       "branch": "polly/rc-006-codex",
@@ -204,8 +201,8 @@
       "agent": "codex+different_vendor_reviewer",
       "status": "BLOCKED",
       "priority": "P1",
-      "progress": "Local gates pass; independent review task failed to launch",
-      "activity": "Awaiting human decision or another review-capable vendor",
+      "progress": "Local gates pass; review dispatch failed; owner authorized publishing a draft PR without waiting",
+      "activity": "Independent review still required before merge",
       "dependencies": [
         "RC-006",
         "RC-007",
@@ -216,7 +213,7 @@
       "files": [],
       "tests": "JS and Android build/unit gates passed; device checks pending",
       "blockers": [
-        "Only independent reviewer failed to start; no push/PR until review gate is resolved"
+        "Antigravity failed before receiving review task; no review completed"
       ]
     },
     {
@@ -268,9 +265,10 @@
       "agent": "codex",
       "title": "android-tracking-poc-codex",
       "conversation_id": "10e970f830e44577baa069646eed759d",
-      "status": "completed",
+      "status": "publishing_requested",
       "commit": "2d126bb8c07af01ae93f26d0b7e449703fa1b57d",
-      "result": "Implemented locally; no push/PR; gate runs recorded"
+      "result": "Implemented locally; no push/PR; gate runs recorded",
+      "latest_event": "Owner explicitly directed GitHub publication; push only feature branch and open draft PR targeting main"
     },
     {
       "agent": "agy",
@@ -307,6 +305,11 @@
         "screenshots",
         "persisted traces"
       ]
+    },
+    {
+      "decision": "Publish current ReelCount implementation to GitHub despite missing cross-vendor review; open draft PR and do not merge",
+      "status": "approved",
+      "date": "2026-11-07"
     }
   ],
   "worktrees": [
