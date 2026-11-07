@@ -43,6 +43,8 @@ Package identifiers are provisional constants: Instagram `com.instagram.android`
 
 The React Native disclosure requires an unchecked affirmative opt-in before it opens Android Accessibility settings. The service remains disabled until the user separately enables it in system settings. Consent state is not persisted. The system settings description repeats the limited collection and accuracy disclosures.
 
+For tester observability, the app exposes only service-connected status, the number of experimental candidate transitions, and the number of metadata records currently held in the transient buffer. These aggregate values live in process memory, are never saved, and reset when the service disconnects. The UI polls only while the app is active; it does not expose event records or target app content.
+
 A pure reducer may combine signals and debounce bursts, but it emits a `CandidateTransition`, not a confirmed unique reel identity. Its rules and timing are experimental parameters. The UI and reports must state that counts are under validation.
 
 ## Foreground and lifecycle behavior

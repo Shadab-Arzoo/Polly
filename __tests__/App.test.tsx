@@ -1,13 +1,21 @@
 /** @format */
 
 import React from 'react';
+import { Text } from 'react-native';
 import ReactTestRenderer from 'react-test-renderer';
 import App from '../App';
 import PrototypeSettings from '../src/native/PrototypeSettings';
 
 jest.mock('../src/native/PrototypeSettings', () => ({
   __esModule: true,
-  default: { openAccessibilitySettings: jest.fn() },
+  default: {
+    openAccessibilitySettings: jest.fn(),
+    getPrototypeStatus: jest.fn().mockResolvedValue({
+      serviceConnected: true,
+      candidateCount: 2,
+      bufferedEventCount: 4,
+    }),
+  },
 }));
 jest.mock('react-native-safe-area-context', () => {
   const mockReact = require('react') as typeof import('react');
@@ -21,9 +29,18 @@ jest.mock('react-native-safe-area-context', () => {
 
 test('requires an explicit opt-in before opening Android accessibility settings', async () => {
   let renderer: ReactTestRenderer.ReactTestRenderer;
-  await ReactTestRenderer.act(() => {
+  await ReactTestRenderer.act(async () => {
     renderer = ReactTestRenderer.create(<App />);
+    await Promise.resolve();
   });
+
+  expect(
+    renderer!.root
+      .findAllByType(Text)
+      .map(node => node.props.children)
+      .flat(Infinity)
+      .join(''),
+  ).toContain('Candidate transitions this service session: 2');
 
   const checkbox = renderer!.root.findByProps({
     accessibilityRole: 'checkbox',
@@ -39,4 +56,5 @@ test('requires an explicit opt-in before opening Android accessibility settings'
   expect(continueButton.props.disabled).toBe(false);
   await ReactTestRenderer.act(() => continueButton.props.onPress());
   expect(PrototypeSettings.openAccessibilitySettings).toHaveBeenCalledTimes(1);
+  await ReactTestRenderer.act(() => renderer!.unmount());
 });
