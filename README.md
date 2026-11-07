@@ -13,7 +13,7 @@ See [ROADMAP.md](ROADMAP.md) for phases and the task board, and [docs/architectu
 - React Native and TypeScript for the Android app UI.
 - Kotlin Android AccessibilityService prototype, limited to explicitly enabled supported apps and allowlisted event metadata.
 - Local persistence for aggregate counts after feasibility is demonstrated and the schema is reviewed.
-- React Native navigation for app screens.
+- React Native and TypeScript for the initial Android screen.
 
 ## Privacy boundary for the first prototype
 
@@ -21,4 +21,32 @@ The approved prototype scope is opt-in, app-filtered event measurement that may 
 
 ## Build instructions
 
-Not available yet. The repository has no application dependencies or Android project until the implementation phase creates them.
+Install Node.js (22.11 or newer), JDK 17, Android Studio and the Android SDK, then install JavaScript dependencies:
+
+```sh
+npm install
+npm run start
+```
+
+In another terminal, with an Android emulator or device available:
+
+```sh
+npm run android
+```
+
+Checks available without a device:
+
+```sh
+npm run lint
+npm run typecheck
+npm test -- --runInBand
+cd android && ./gradlew :app:testDebugUnitTest :app:assembleDebug
+```
+
+The package identifiers in the service configuration are provisional. Installed package names, app versions, and event-transition accuracy have not been verified on physical devices. The prototype's candidate transitions are experimental and must not be presented as reliable counts.
+
+### Installing a pre-release APK
+
+The release variant is a pre-release, debug-key-signed APK for tester installation. It does not request network access. React Native Metro's network permission is added only to the debug variant.
+
+On Android 13 and newer, Android may block Accessibility access for apps installed outside an app store. If the ReelCount service is unavailable or disabled in Accessibility settings, open **Settings → Apps → ReelCount (Pre-release) → ⋮ → Allow restricted settings**, confirm the system prompt, then return to **Settings → Accessibility → Installed apps → ReelCount (Pre-release)** and enable it. Menu labels may vary by device. Only allow restricted settings for apps you trust. See [Google's Android Help](https://support.google.com/android/answer/12623953).
