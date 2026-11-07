@@ -13,7 +13,7 @@ internal data class EventMetadata(
 internal class CandidateTransitionReducer(
   private val debounceMillis: Long = DEFAULT_DEBOUNCE_MILLIS,
 ) {
-  private var lastCandidateTimestamp: Long? = null
+  private val lastCandidateTimestamps = mutableMapOf<String, Long>()
 
   fun reduce(event: EventMetadata): Boolean {
     if (
@@ -23,7 +23,7 @@ internal class CandidateTransitionReducer(
       return false
     }
 
-    val previousTimestamp = lastCandidateTimestamp
+    val previousTimestamp = lastCandidateTimestamps[event.packageName]
     if (
       previousTimestamp != null &&
         (event.timestamp < previousTimestamp || event.timestamp - previousTimestamp < debounceMillis)
@@ -31,12 +31,12 @@ internal class CandidateTransitionReducer(
       return false
     }
 
-    lastCandidateTimestamp = event.timestamp
+    lastCandidateTimestamps[event.packageName] = event.timestamp
     return true
   }
 
   fun reset() {
-    lastCandidateTimestamp = null
+    lastCandidateTimestamps.clear()
   }
 
   private companion object {

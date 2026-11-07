@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   Pressable,
   ScrollView,
@@ -8,11 +8,37 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
-import PrototypeSettings from './src/native/PrototypeSettings';
+import PrototypeSettings, {
+  type PrototypeStatus,
+} from './src/native/PrototypeSettings';
 
 function App() {
   const [consentGiven, setConsentGiven] = useState(false);
   const [settingsError, setSettingsError] = useState(false);
+  const [prototypeStatus, setPrototypeStatus] = useState<PrototypeStatus>({
+    serviceConnected: false,
+    candidateCount: 0,
+    bufferedEventCount: 0,
+  });
+
+  useEffect(() => {
+    let mounted = true;
+    const refreshStatus = () => {
+      PrototypeSettings.getPrototypeStatus()
+        .then(status => {
+          if (mounted) {
+            setPrototypeStatus(status);
+          }
+        })
+        .catch(() => {});
+    };
+    refreshStatus();
+    const interval = setInterval(refreshStatus, 1000);
+    return () => {
+      mounted = false;
+      clearInterval(interval);
+    };
+  }, []);
 
   const continueToSettings = async () => {
     if (!consentGiven) {
@@ -32,13 +58,32 @@ function App() {
       <SafeAreaView style={styles.safeArea}>
         <StatusBar barStyle="light-content" />
         <ScrollView contentContainerStyle={styles.content}>
-          <Text style={styles.eyebrow}>REELCOUNT · FEASIBILITY PROTOTYPE</Text>
+          <Text style={styles.eyebrow}>REELCOUNT · PRE-RELEASE PROTOTYPE</Text>
           <Text style={styles.title}>Notice your short-video scrolling</Text>
           <Text style={styles.intro}>
             ReelCount is testing whether Android accessibility event metadata
             can help identify possible video transitions. It is an experiment,
             not a reliable counter or an accessibility tool.
           </Text>
+
+          <View style={styles.statusSection} accessibilityLiveRegion="polite">
+            <Text style={styles.sectionTitle}>Prototype status</Text>
+            <Text style={styles.body}>
+              {prototypeStatus.serviceConnected
+                ? 'Accessibility service connected'
+                : 'Accessibility service not active'}
+            </Text>
+            <Text style={styles.body}>
+              Candidate transitions this service session: {prototypeStatus.candidateCount}
+            </Text>
+            <Text style={styles.body}>
+              Temporary event metadata buffered: {prototypeStatus.bufferedEventCount}
+            </Text>
+            <Text style={styles.statusHint}>
+              These temporary diagnostics reset when the service stops. Candidate values are
+              experimental and are not reliable reel counts.
+            </Text>
+          </View>
 
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>
@@ -62,6 +107,15 @@ function App() {
               ReelCount does not read event text, screen content, accessibility
               UI trees, messages, passwords, or screenshots, and does not
               monitor unrelated apps.
+            </Text>
+          </View>
+
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Android 13+ Setup Note</Text>
+            <Text style={styles.body}>
+              If Android disables or greys out the service in Accessibility Settings,
+              open Settings &gt; Apps &gt; ReelCount (Pre-release) &gt; ⋮ &gt; Allow restricted
+              settings, then return to Accessibility Settings to turn it on.
             </Text>
           </View>
 
@@ -132,6 +186,14 @@ const styles = StyleSheet.create({
     marginTop: 18,
   },
   intro: { color: '#d0dbd3', fontSize: 16, lineHeight: 24, marginTop: 14 },
+  statusSection: {
+    backgroundColor: '#20312a',
+    borderColor: '#40534a',
+    borderRadius: 6,
+    borderWidth: 1,
+    marginTop: 24,
+    padding: 16,
+  },
   section: {
     borderTopColor: '#40534a',
     borderTopWidth: 1,
@@ -140,6 +202,7 @@ const styles = StyleSheet.create({
   },
   sectionTitle: { color: '#f2f5ef', fontSize: 18, fontWeight: '700' },
   body: { color: '#d0dbd3', fontSize: 15, lineHeight: 23, marginTop: 10 },
+  statusHint: { color: '#b7c5bc', fontSize: 13, lineHeight: 19, marginTop: 10 },
   note: {
     backgroundColor: '#26372f',
     borderLeftColor: '#e4b76c',

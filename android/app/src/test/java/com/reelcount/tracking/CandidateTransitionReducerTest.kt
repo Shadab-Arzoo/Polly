@@ -46,6 +46,12 @@ class CandidateTransitionReducerTest {
     assertFalse(reducer.reduce(event(AccessibilityEvent.TYPE_VIEW_SCROLLED, TargetPackages.YOUTUBE, 2_001L)))
   }
 
+  @Test
+  fun rapidSwitchBetweenDifferentPackagesDoesNotSuppressSecondPackage() {
+    assertTrue(reducer.reduce(event(AccessibilityEvent.TYPE_VIEW_SCROLLED, TargetPackages.INSTAGRAM, 1_000L)))
+    assertTrue(reducer.reduce(event(AccessibilityEvent.TYPE_VIEW_SCROLLED, TargetPackages.TIKTOK, 1_100L)))
+  }
+
   private fun event(type: Int, packageName: String, timestamp: Long) =
     EventMetadata(type, packageName, timestamp)
 }

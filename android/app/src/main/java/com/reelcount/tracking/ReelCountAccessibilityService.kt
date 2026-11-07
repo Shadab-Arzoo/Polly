@@ -11,7 +11,12 @@ class ReelCountAccessibilityService : AccessibilityService() {
   private val trace = ArrayDeque<EventMetadata>(MAX_TRACE_EVENTS)
   private val reducer = CandidateTransitionReducer()
   private val handler = Handler(Looper.getMainLooper())
-  private val clearIdleState = Runnable { clearTransientState() }
+  private val clearIdleState = Runnable { clearIdleTrace() }
+
+  override fun onServiceConnected() {
+    super.onServiceConnected()
+    PrototypeRuntimeStatus.connected()
+  }
 
   override fun onAccessibilityEvent(event: AccessibilityEvent?) {
     if (event == null) return
@@ -23,12 +28,18 @@ class ReelCountAccessibilityService : AccessibilityService() {
 
     if (trace.size == MAX_TRACE_EVENTS) trace.removeFirst()
     trace.addLast(metadata)
-    reducer.reduce(metadata) // Candidate output remains experimental and is not presented as a count.
+    val candidate = reducer.reduce(metadata)
+    PrototypeRuntimeStatus.recordEvent(candidate, trace.size)
     handler.removeCallbacks(clearIdleState)
     handler.postDelayed(clearIdleState, TRACE_IDLE_TIMEOUT_MS)
   }
 
-  override fun onInterrupt() = clearTransientState()
+  override fun onInterrupt() {
+    handler.removeCallbacks(clearIdleState)
+    trace.clear()
+    reducer.reset()
+    PrototypeRuntimeStatus.interrupted()
+  }
 
   override fun onUnbind(intent: android.content.Intent?): Boolean {
     clearTransientState()
@@ -44,6 +55,12 @@ class ReelCountAccessibilityService : AccessibilityService() {
     handler.removeCallbacks(clearIdleState)
     trace.clear()
     reducer.reset()
+    PrototypeRuntimeStatus.disconnected()
+  }
+
+  private fun clearIdleTrace() {
+    trace.clear()
+    PrototypeRuntimeStatus.clearTrace()
   }
 
   private companion object {

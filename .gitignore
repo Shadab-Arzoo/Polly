@@ -13,6 +13,7 @@ local.properties
 
 # React Native generated files
 android/.cxx/
+**/.cxx/
 android/app/.externalNativeBuild/
 
 # Environment and editor files
