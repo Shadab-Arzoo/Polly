@@ -47,6 +47,9 @@ internal object PrototypeRuntimeStatus {
   }
 
   @Synchronized
+  fun getPackageCount(packageName: String): Int = packageCounts[packageName] ?: 0
+
+  @Synchronized
   fun reset() {
     candidateCount = 0
     bufferedEventCount = 0
