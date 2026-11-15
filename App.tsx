@@ -18,6 +18,8 @@ import PrototypeSettings, {
 
 type Tab = 'counter' | 'timers' | 'block' | 'settings';
 type BreathePhase = 'Inhale' | 'Hold' | 'Exhale';
+type CravingTab = 'breathing' | 'delay' | 'grounding';
+type HudStyle = 'pill' | 'dot' | 'warning_only';
 
 function App() {
   const [activeTab, setActiveTab] = useState<Tab>('counter');
@@ -32,6 +34,8 @@ function App() {
   const [breakReminder, setBreakReminder] = useState(true);
   const [doomscrollAlert, setDoomscrollAlert] = useState(true);
   const [bedtimeShield, setBedtimeShield] = useState(false);
+  const [weeklyRecapAlert, setWeeklyRecapAlert] = useState(true);
+  const [hudStyle, setHudStyle] = useState<HudStyle>('pill');
 
   // Block & Focus state
   const [focusModeActive, setFocusModeActive] = useState(false);
@@ -46,11 +50,15 @@ function App() {
   const [dayHistory, setDayHistory] = useState<DayHistoryItem[]>([]);
   const [selectedHistoryIndex, setSelectedHistoryIndex] = useState<number | null>(null);
 
-  // Mindful Breathing Tool state
-  const [showBreatheModal, setShowBreatheModal] = useState(false);
+  // Mindful Breathing & Craving SOS Tool state
+  const [showCravingModal, setShowCravingModal] = useState(false);
+  const [cravingTab, setCravingTab] = useState<CravingTab>('breathing');
   const [breathePhase, setBreathePhase] = useState<BreathePhase>('Inhale');
   const [breatheSecondsRemaining, setBreatheSecondsRemaining] = useState(60);
   const [breatheCycleSec, setBreatheCycleSec] = useState(4);
+  const [delaySeconds, setDelaySeconds] = useState(90);
+  const [delayRunning, setDelayRunning] = useState(false);
+  const [groundingStep, setGroundingStep] = useState(0);
 
   const [prototypeStatus, setPrototypeStatus] = useState<PrototypeStatus>({
     serviceConnected: false,
@@ -118,11 +126,11 @@ function App() {
   // Mindful Breath Guide Engine (4-4-4 Box Breathing)
   useEffect(() => {
     let interval: ReturnType<typeof setInterval> | null = null;
-    if (showBreatheModal && breatheSecondsRemaining > 0) {
+    if (showCravingModal && cravingTab === 'breathing' && breatheSecondsRemaining > 0) {
       interval = setInterval(() => {
         setBreatheSecondsRemaining(prev => {
           if (prev <= 1) {
-            setShowBreatheModal(false);
+            setShowCravingModal(false);
             Alert.alert('Mindful Reset Complete 🌿', 'Take this calm awareness with you into your day.');
             return 60;
           }
@@ -146,7 +154,35 @@ function App() {
     return () => {
       if (interval) clearInterval(interval);
     };
-  }, [showBreatheModal, breatheSecondsRemaining]);
+  }, [showCravingModal, cravingTab, breatheSecondsRemaining]);
+
+  // 90-Second Craving Surge Delay Engine
+  useEffect(() => {
+    let interval: ReturnType<typeof setInterval> | null = null;
+    if (delayRunning && delaySeconds > 0) {
+      interval = setInterval(() => {
+        setDelaySeconds(prev => {
+          if (prev <= 1) {
+            setDelayRunning(false);
+            Alert.alert(
+              'Craving Wave Surfed! 🌊',
+              'Awesome impulse victory! You waited out the craving spike and allowed your prefrontal cortex to regain control.',
+            );
+            return 90;
+          }
+          return prev - 1;
+        });
+      }, 1000);
+    }
+    return () => {
+      if (interval) clearInterval(interval);
+    };
+  }, [delayRunning, delaySeconds]);
+
+  const openCravingModal = (tab: CravingTab = 'breathing') => {
+    setCravingTab(tab);
+    setShowCravingModal(true);
+  };
 
   const continueToSettings = async () => {
     if (!consentGiven) {
@@ -345,6 +381,135 @@ function App() {
   };
 
   const greeting = getGreeting();
+
+  // Dynamic Mindful Streak
+  const calculateStreak = () => {
+    let streak = 0;
+    if (totalShorts <= dailyLimit) {
+      streak += 1;
+    }
+    for (let i = dayHistory.length - 2; i >= 0; i--) {
+      const item = dayHistory[i];
+      if (item && item.count <= dailyLimit) {
+        streak += 1;
+      } else {
+        break;
+      }
+    }
+    return Math.max(1, streak);
+  };
+  const mindfulStreak = calculateStreak();
+
+  // Life Reclaimed Beyond Screen
+  const typicalDailyDoomscrollMins = 90;
+  const timeSavedMins = Math.max(0, typicalDailyDoomscrollMins - estMinutes);
+  const bookPagesEquivalent = Math.max(1, Math.round(estMinutes * 0.75));
+  const walkingStepsEquivalent = Math.max(50, Math.round(estMinutes * 95));
+
+  // Chrono-Shield Vulnerability Assessment
+  const getChronoAnalysis = () => {
+    const hour = new Date().getHours();
+    if (hour >= 22 || hour < 5) {
+      return {
+        level: 'Critical Vulnerability',
+        badgeColor: '#f87171',
+        icon: '🌙',
+        title: 'Melatonin & Deep Sleep Disruption',
+        advice: 'Scrolling past 10 PM delays REM sleep by up to 90 minutes. Engage the Bedtime Shield now.',
+      };
+    }
+    if (hour >= 13 && hour < 17) {
+      return {
+        level: 'Moderate Slump Risk',
+        badgeColor: '#fbbf24',
+        icon: '⚡',
+        title: 'Afternoon Dopamine Fatigue',
+        advice: 'Post-lunch cognitive drops trigger reflex swipes. Swap phone for 5 minutes of sunlight or cold water.',
+      };
+    }
+    if (hour >= 5 && hour < 11) {
+      return {
+        level: 'Protected Morning Window',
+        badgeColor: '#38d39f',
+        icon: '☀️',
+        title: 'Morning Cortisol Alignment',
+        advice: 'Keeping your first 60 minutes screen-free primes dopamine baseline for the entire day.',
+      };
+    }
+    return {
+      level: 'Evening Transition Zone',
+      badgeColor: '#a78bfa',
+      icon: '🌇',
+      title: 'Evening Decompression',
+      advice: 'Avoid doomscrolling while unwinding. Give your eyes and mind real physical downtime.',
+    };
+  };
+
+  const chronoShield = getChronoAnalysis();
+
+  const milestones = [
+    {
+      id: 'cap',
+      icon: '🎯',
+      name: 'Cap Champion',
+      desc: 'Inside daily target',
+      unlocked: totalShorts <= dailyLimit,
+    },
+    {
+      id: 'zen',
+      icon: '🧘',
+      name: 'Zen Master',
+      desc: 'Used Craving Reset',
+      unlocked: true,
+    },
+    {
+      id: 'shield',
+      icon: '🛡️',
+      name: 'Focus Guardian',
+      desc: 'Protected deep work',
+      unlocked: focusTimerRunning || focusTimerSeconds < 15 * 60,
+    },
+    {
+      id: 'streak',
+      icon: '🔥',
+      name: `${mindfulStreak}d Streak`,
+      desc: 'Consistent impulse control',
+      unlocked: mindfulStreak >= 1,
+    },
+  ];
+
+  const groundingSteps = [
+    {
+      num: 5,
+      sense: '👀 SEE',
+      title: 'Acknowledge 5 things you can see',
+      prompt: 'Look around your room or space. Notice the shapes, colors, or shadows of 5 objects.',
+    },
+    {
+      num: 4,
+      sense: '✋ FEEL',
+      title: 'Acknowledge 4 things you can touch',
+      prompt: 'Feel your feet on the floor, the texture of your clothing, the chair beneath you, or the cool air.',
+    },
+    {
+      num: 3,
+      sense: '👂 HEAR',
+      title: 'Acknowledge 3 sounds you can hear',
+      prompt: 'Listen for subtle noises: the hum of electronics, distant chatter, your breath, or outdoor ambience.',
+    },
+    {
+      num: 2,
+      sense: '👃 SMELL',
+      title: 'Acknowledge 2 things you can smell',
+      prompt: 'Take two conscious inhalations through your nose. Notice any ambient scent in the air.',
+    },
+    {
+      num: 1,
+      sense: '👅 TASTE',
+      title: 'Acknowledge 1 thing you can taste',
+      prompt: 'Swallow, relax your jaw, or take a sip of cool water. Feel your prefrontal cortex return to clarity.',
+    },
+  ];
 
   // Format seconds into MM:SS
   const formatTimer = (sec: number) => {
@@ -583,7 +748,7 @@ function App() {
 
           <View style={styles.heroTopActions}>
             <Pressable
-              onPress={() => setShowBreatheModal(true)}
+              onPress={() => openCravingModal('breathing')}
               style={styles.zenPauseButton}
             >
               <Text style={styles.zenPauseButtonText}>🧘 1m Reset</Text>
@@ -667,7 +832,7 @@ function App() {
           <View style={styles.heroStatDivider} />
           <View style={styles.heroStatItem}>
             <Text style={styles.heroStatIcon}>🔥</Text>
-            <Text style={styles.heroStatValue}>3 Days</Text>
+            <Text style={styles.heroStatValue}>{mindfulStreak} {mindfulStreak === 1 ? 'Day' : 'Days'}</Text>
             <Text style={styles.heroStatLabel}>Mindful Streak</Text>
           </View>
           <View style={styles.heroStatDivider} />
@@ -684,6 +849,89 @@ function App() {
             <Text style={styles.quickFocusActionText}>⚡ Start Quick 15m Focus Shield</Text>
           </Pressable>
         )}
+      </View>
+
+      {/* Craving SOS / Urge Surfer Action Banner */}
+      <View style={styles.cravingSosBanner}>
+        <View style={styles.cravingSosHeaderRow}>
+          <View style={styles.cravingSosBadge}>
+            <Text style={styles.cravingSosBadgeText}>⚡ CRAVING SOS</Text>
+          </View>
+          <Text style={styles.cravingSosWaveTag}>Impulse Interrupter</Text>
+        </View>
+        <Text style={styles.cravingSosTitle}>Feeling the urge to swipe?</Text>
+        <Text style={styles.cravingSosDesc}>
+          Urges peak in 90 seconds. Interrupt the reflex loop with breathwork, wave delay, or sensory grounding.
+        </Text>
+        <View style={styles.cravingSosBtnRow}>
+          <Pressable
+            onPress={() => openCravingModal('delay')}
+            style={styles.cravingSosPrimaryBtn}
+          >
+            <Text style={styles.cravingSosPrimaryBtnText}>🌊 90s Wave Surfer</Text>
+          </Pressable>
+          <Pressable
+            onPress={() => openCravingModal('breathing')}
+            style={styles.cravingSosSecondaryBtn}
+          >
+            <Text style={styles.cravingSosSecondaryBtnText}>🧘 4-4-4 Box Breath</Text>
+          </Pressable>
+          <Pressable
+            onPress={() => openCravingModal('grounding')}
+            style={styles.cravingSosSecondaryBtn}
+          >
+            <Text style={styles.cravingSosSecondaryBtnText}>🌿 Grounding</Text>
+          </Pressable>
+        </View>
+      </View>
+
+      {/* Life Reclaimed Beyond Screen Card */}
+      <View style={styles.sectionCard}>
+        <View style={styles.cardHeaderWithAction}>
+          <Text style={styles.cardSectionTitle}>🌱 Life Beyond Feeds</Text>
+          <Text style={styles.cardSelectedHighlight}>~{timeSavedMins}m Saved</Text>
+        </View>
+        <Text style={styles.cardSubtitle}>
+          Real-world experiences reclaimed compared to typical 90m doomscrolling.
+        </Text>
+        <View style={styles.lifeReclaimedGrid}>
+          <View style={styles.lifeReclaimedCard}>
+            <Text style={styles.lifeReclaimedIcon}>⏱️</Text>
+            <Text style={styles.lifeReclaimedValue}>~{timeSavedMins}m</Text>
+            <Text style={styles.lifeReclaimedLabel}>Time Reclaimed</Text>
+          </View>
+          <View style={styles.lifeReclaimedCard}>
+            <Text style={styles.lifeReclaimedIcon}>📚</Text>
+            <Text style={styles.lifeReclaimedValue}>{bookPagesEquivalent} pgs</Text>
+            <Text style={styles.lifeReclaimedLabel}>Book Reading Equiv</Text>
+          </View>
+          <View style={styles.lifeReclaimedCard}>
+            <Text style={styles.lifeReclaimedIcon}>🚶</Text>
+            <Text style={styles.lifeReclaimedValue}>{walkingStepsEquivalent}</Text>
+            <Text style={styles.lifeReclaimedLabel}>Physical Steps Equiv</Text>
+          </View>
+          <View style={styles.lifeReclaimedCard}>
+            <Text style={styles.lifeReclaimedIcon}>🧠</Text>
+            <Text style={styles.lifeReclaimedValue}>Grounded</Text>
+            <Text style={styles.lifeReclaimedLabel}>Dopamine State</Text>
+          </View>
+        </View>
+      </View>
+
+      {/* Chrono-Shield Vulnerability Analyzer */}
+      <View style={styles.sectionCard}>
+        <View style={styles.chronoHeaderRow}>
+          <Text style={styles.chronoIcon}>{chronoShield.icon}</Text>
+          <View style={styles.chronoTitleWrap}>
+            <View style={styles.chronoBadgeRow}>
+              <Text style={[styles.chronoLevelBadge, { color: chronoShield.badgeColor }]}>
+                {chronoShield.level.toUpperCase()}
+              </Text>
+            </View>
+            <Text style={styles.chronoTitle}>{chronoShield.title}</Text>
+          </View>
+        </View>
+        <Text style={styles.chronoAdviceText}>{chronoShield.advice}</Text>
       </View>
 
       {/* 7-Day Activity History Bar Chart */}
@@ -884,6 +1132,56 @@ function App() {
         </View>
       </View>
 
+      {/* Mindful Milestones & Badges */}
+      <View style={styles.sectionCard}>
+        <View style={styles.cardHeaderWithAction}>
+          <Text style={styles.cardSectionTitle}>🏆 Mindful Milestones</Text>
+          <Text style={styles.cardSelectedHighlight}>
+            {milestones.filter(m => m.unlocked).length} of 4 Unlocked
+          </Text>
+        </View>
+        <Text style={styles.cardSubtitle}>
+          Habit trophies celebrating impulse control and conscious digital presence.
+        </Text>
+        <View style={styles.milestonesGrid}>
+          {milestones.map(badge => (
+            <View
+              key={badge.id}
+              style={[
+                styles.milestoneBadgeCard,
+                badge.unlocked ? styles.milestoneUnlocked : styles.milestoneLocked,
+              ]}
+            >
+              <Text style={styles.milestoneIcon}>{badge.icon}</Text>
+              <Text
+                style={[
+                  styles.milestoneName,
+                  badge.unlocked ? styles.milestoneNameUnlocked : styles.milestoneNameLocked,
+                ]}
+              >
+                {badge.name}
+              </Text>
+              <Text style={styles.milestoneDesc}>{badge.desc}</Text>
+              <View
+                style={[
+                  styles.milestoneStatusTag,
+                  badge.unlocked ? styles.milestoneStatusTagUnlocked : styles.milestoneStatusTagLocked,
+                ]}
+              >
+                <Text
+                  style={[
+                    styles.milestoneStatusText,
+                    badge.unlocked ? styles.milestoneStatusTextUnlocked : styles.milestoneStatusTextLocked,
+                  ]}
+                >
+                  {badge.unlocked ? '✓ UNLOCKED' : '🔒 LOCKED'}
+                </Text>
+              </View>
+            </View>
+          ))}
+        </View>
+      </View>
+
       {/* Floating HUD info */}
       <View style={styles.tipCard}>
         <View style={styles.tipHeaderRow}>
@@ -1068,6 +1366,28 @@ function App() {
               style={[
                 styles.switchThumb,
                 doomscrollAlert && styles.switchThumbOn,
+              ]}
+            />
+          </View>
+        </Pressable>
+
+        <Pressable
+          onPress={() => setWeeklyRecapAlert(prev => !prev)}
+          style={styles.toggleRow}
+        >
+          <View style={styles.toggleInfo}>
+            <Text style={styles.toggleTitle}>Weekly Mindful Habit Recap</Text>
+            <Text style={styles.toggleSubtitle}>
+              Sunday evening summary comparing your weekly scrolls against your streak.
+            </Text>
+          </View>
+          <View
+            style={[styles.switchTrack, weeklyRecapAlert && styles.switchTrackOn]}
+          >
+            <View
+              style={[
+                styles.switchThumb,
+                weeklyRecapAlert && styles.switchThumbOn,
               ]}
             />
           </View>
@@ -1383,6 +1703,44 @@ function App() {
         </Pressable>
       </View>
 
+      {/* Floating HUD Style Selection */}
+      <View style={styles.sectionCard}>
+        <Text style={styles.cardSectionTitle}>HUD Display Style</Text>
+        <Text style={styles.cardSubtitle}>
+          Choose how the on-screen live counter looks inside video apps.
+        </Text>
+        <View style={styles.hudStyleSelectorRow}>
+          {[
+            { id: 'pill' as HudStyle, label: 'Pill', icon: '🎬 14', desc: 'Badge with count' },
+            { id: 'dot' as HudStyle, label: 'Compact', icon: '● 14', desc: 'Minimal dot' },
+            { id: 'warning_only' as HudStyle, label: 'Stealth', icon: '⚠️ Only', desc: 'Only at limit' },
+          ].map(styleOpt => (
+            <Pressable
+              key={styleOpt.id}
+              onPress={() => {
+                setHudStyle(styleOpt.id);
+                Alert.alert('HUD Style Updated', `Floating overlay set to ${styleOpt.label} mode.`);
+              }}
+              style={[
+                styles.hudStyleCard,
+                hudStyle === styleOpt.id && styles.hudStyleCardSelected,
+              ]}
+            >
+              <Text style={styles.hudStyleIcon}>{styleOpt.icon}</Text>
+              <Text
+                style={[
+                  styles.hudStyleLabel,
+                  hudStyle === styleOpt.id && styles.hudStyleLabelSelected,
+                ]}
+              >
+                {styleOpt.label}
+              </Text>
+              <Text style={styles.hudStyleDesc}>{styleOpt.desc}</Text>
+            </Pressable>
+          ))}
+        </View>
+      </View>
+
       {/* Privacy Guarantee */}
       <View style={styles.sectionCard}>
         <View style={styles.privacyHeaderRow}>
@@ -1427,7 +1785,7 @@ function App() {
 
       {/* App Version Footer */}
       <View style={styles.footerCol}>
-        <Text style={styles.footerVersion}>ReelCount v0.2.4</Text>
+        <Text style={styles.footerVersion}>ReelCount v0.3.0</Text>
         <Text style={styles.footerTagline}>Mindful Digital Wellbeing Sanctuary</Text>
       </View>
     </ScrollView>
@@ -1525,53 +1883,188 @@ function App() {
           </View>
         )}
 
-        {/* Mindful Breathing Modal (4-4-4 Box Breathing) */}
+        {/* Craving SOS & Impulse Interrupter Sanctuary Modal */}
         <Modal
-          visible={showBreatheModal}
+          visible={showCravingModal}
           transparent
           animationType="fade"
-          onRequestClose={() => setShowBreatheModal(false)}
+          onRequestClose={() => {
+            setShowCravingModal(false);
+            setDelayRunning(false);
+          }}
         >
           <View style={styles.modalOverlay}>
             <View style={styles.breatheModalCard}>
-              <Text style={styles.breatheModalEyebrow}>MINDFUL RECOVERY PAUSE</Text>
-              <Text style={styles.breatheModalTitle}>4-4-4 Box Breathing</Text>
+              <Text style={styles.breatheModalEyebrow}>NEURAL PATTERN INTERRUPT</Text>
+              <Text style={styles.breatheModalTitle}>Craving SOS Sanctuary</Text>
               <Text style={styles.breatheModalDesc}>
-                Take a moment to disconnect dopamine reflex and restore mental presence.
+                Break the dopamine compulsion loop with an evidence-based mindful pause.
               </Text>
 
-              {/* Expanding / Pulsing Zen Breathing Ring */}
-              <View style={styles.breatheVisualWrap}>
-                <View
+              {/* 3-Mode Switcher */}
+              <View style={styles.modalTabRow}>
+                <Pressable
+                  onPress={() => setCravingTab('breathing')}
                   style={[
-                    styles.breatheRingOuter,
-                    breathePhase === 'Inhale'
-                      ? styles.breatheRingInhale
-                      : breathePhase === 'Hold'
-                      ? styles.breatheRingHold
-                      : styles.breatheRingExhale,
+                    styles.modalTabBtn,
+                    cravingTab === 'breathing' && styles.modalTabBtnActive,
                   ]}
                 >
-                  <View style={styles.breatheRingInner}>
-                    <Text style={styles.breathePhaseText}>{breathePhase}</Text>
-                    <Text style={styles.breatheCycleCount}>{breatheCycleSec}s</Text>
-                  </View>
-                </View>
+                  <Text
+                    style={[
+                      styles.modalTabBtnText,
+                      cravingTab === 'breathing' && styles.modalTabBtnTextActive,
+                    ]}
+                  >
+                    🧘 4-4-4 Breath
+                  </Text>
+                </Pressable>
+                <Pressable
+                  onPress={() => setCravingTab('delay')}
+                  style={[
+                    styles.modalTabBtn,
+                    cravingTab === 'delay' && styles.modalTabBtnActive,
+                  ]}
+                >
+                  <Text
+                    style={[
+                      styles.modalTabBtnText,
+                      cravingTab === 'delay' && styles.modalTabBtnTextActive,
+                    ]}
+                  >
+                    🌊 90s Delay
+                  </Text>
+                </Pressable>
+                <Pressable
+                  onPress={() => setCravingTab('grounding')}
+                  style={[
+                    styles.modalTabBtn,
+                    cravingTab === 'grounding' && styles.modalTabBtnActive,
+                  ]}
+                >
+                  <Text
+                    style={[
+                      styles.modalTabBtnText,
+                      cravingTab === 'grounding' && styles.modalTabBtnTextActive,
+                    ]}
+                  >
+                    🌿 Grounding
+                  </Text>
+                </Pressable>
               </View>
 
-              <Text style={styles.breatheRemainingText}>
-                {breatheSecondsRemaining}s total remaining
-              </Text>
+              {/* Mode 1: 4-4-4 Box Breathing */}
+              {cravingTab === 'breathing' && (
+                <View style={styles.cravingContentWrap}>
+                  <View style={styles.breatheVisualWrap}>
+                    <View
+                      style={[
+                        styles.breatheRingOuter,
+                        breathePhase === 'Inhale'
+                          ? styles.breatheRingInhale
+                          : breathePhase === 'Hold'
+                          ? styles.breatheRingHold
+                          : styles.breatheRingExhale,
+                      ]}
+                    >
+                      <View style={styles.breatheRingInner}>
+                        <Text style={styles.breathePhaseText}>{breathePhase}</Text>
+                        <Text style={styles.breatheCycleCount}>{breatheCycleSec}s</Text>
+                      </View>
+                    </View>
+                  </View>
+                  <Text style={styles.breatheRemainingText}>
+                    {breatheSecondsRemaining}s session remaining
+                  </Text>
+                </View>
+              )}
+
+              {/* Mode 2: 90-Second Craving Surge Delay */}
+              {cravingTab === 'delay' && (
+                <View style={styles.cravingContentWrap}>
+                  <View style={styles.delayVisualWrap}>
+                    <View style={styles.delayTimerCircle}>
+                      <Text style={styles.delaySecondsText}>{delaySeconds}s</Text>
+                      <Text style={styles.delaySublabel}>Craving Surge</Text>
+                    </View>
+                  </View>
+                  <Text style={styles.delayStageText}>
+                    {delaySeconds > 60
+                      ? '🌊 Urge Rising: Observe the itch without judgment.'
+                      : delaySeconds > 30
+                      ? '⚡ Wave Cresting: The dopamine spike is leveling off.'
+                      : '🌿 Wave Subsiding: Impulse fading, prefrontal cortex in control.'}
+                  </Text>
+                  <View style={styles.delayActionBtnRow}>
+                    <Pressable
+                      onPress={() => setDelayRunning(prev => !prev)}
+                      style={[styles.delayActionBtn, delayRunning && styles.delayActionBtnActive]}
+                    >
+                      <Text style={styles.delayActionBtnText}>
+                        {delayRunning ? '⏸️ Pause Timer' : '▶️ Surf the Wave (90s)'}
+                      </Text>
+                    </Pressable>
+                    <Pressable
+                      onPress={() => {
+                        setDelayRunning(false);
+                        setDelaySeconds(90);
+                      }}
+                      style={styles.delayResetBtn}
+                    >
+                      <Text style={styles.delayResetBtnText}>Reset</Text>
+                    </Pressable>
+                  </View>
+                </View>
+              )}
+
+              {/* Mode 3: 5-4-3-2-1 Sensory Grounding */}
+              {cravingTab === 'grounding' && (
+                <View style={styles.cravingContentWrap}>
+                  <View style={styles.groundingCard}>
+                    <View style={styles.groundingBadgeRow}>
+                      <Text style={styles.groundingSenseTag}>
+                        {groundingSteps[groundingStep].sense}
+                      </Text>
+                      <Text style={styles.groundingStepCount}>
+                        Step {groundingStep + 1} of 5
+                      </Text>
+                    </View>
+                    <Text style={styles.groundingTitle}>
+                      {groundingSteps[groundingStep].title}
+                    </Text>
+                    <Text style={styles.groundingPrompt}>
+                      {groundingSteps[groundingStep].prompt}
+                    </Text>
+                  </View>
+                  <Pressable
+                    onPress={() => {
+                      if (groundingStep < groundingSteps.length - 1) {
+                        setGroundingStep(prev => prev + 1);
+                      } else {
+                        setGroundingStep(0);
+                        setShowCravingModal(false);
+                        Alert.alert('Grounding Complete 🌿', 'Your senses are anchored and mind is clear.');
+                      }
+                    }}
+                    style={styles.groundingNextBtn}
+                  >
+                    <Text style={styles.groundingNextBtnText}>
+                      {groundingStep < 4 ? 'Next Sensory Anchor →' : 'Complete Grounding Session ✓'}
+                    </Text>
+                  </Pressable>
+                </View>
+              )}
 
               <Pressable
                 onPress={() => {
-                  setShowBreatheModal(false);
+                  setShowCravingModal(false);
+                  setDelayRunning(false);
                   setBreatheSecondsRemaining(60);
                   setBreathePhase('Inhale');
                 }}
                 style={styles.breatheCloseBtn}
               >
-                <Text style={styles.breatheCloseBtnText}>End Mindful Pause</Text>
+                <Text style={styles.breatheCloseBtnText}>Return to Sanctuary</Text>
               </Pressable>
             </View>
           </View>
@@ -2937,6 +3430,413 @@ const styles = StyleSheet.create({
     color: '#9cb1a6',
     fontSize: 14,
     fontWeight: '700',
+  },
+
+  // Craving SOS Banner Styles
+  cravingSosBanner: {
+    backgroundColor: '#0c1d15',
+    borderColor: 'rgba(56, 211, 159, 0.4)',
+    borderWidth: 1.5,
+    borderRadius: 20,
+    padding: 18,
+    marginBottom: 16,
+  },
+  cravingSosHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 8,
+  },
+  cravingSosBadge: {
+    backgroundColor: 'rgba(56, 211, 159, 0.15)',
+    borderColor: '#38d39f',
+    borderWidth: 1,
+    borderRadius: 6,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+  },
+  cravingSosBadgeText: {
+    color: '#38d39f',
+    fontSize: 11,
+    fontWeight: '800',
+    letterSpacing: 1,
+  },
+  cravingSosWaveTag: {
+    color: '#7a9e8b',
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  cravingSosTitle: {
+    color: '#f1f5f3',
+    fontSize: 17,
+    fontWeight: '800',
+    marginTop: 2,
+  },
+  cravingSosDesc: {
+    color: '#9cb1a6',
+    fontSize: 13,
+    lineHeight: 18,
+    marginTop: 4,
+    marginBottom: 14,
+  },
+  cravingSosBtnRow: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  cravingSosPrimaryBtn: {
+    flex: 1.2,
+    backgroundColor: '#38d39f',
+    borderRadius: 12,
+    paddingVertical: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  cravingSosPrimaryBtnText: {
+    color: '#090e0c',
+    fontSize: 13,
+    fontWeight: '800',
+  },
+  cravingSosSecondaryBtn: {
+    flex: 1,
+    backgroundColor: '#16281f',
+    borderColor: 'rgba(56, 211, 159, 0.3)',
+    borderWidth: 1,
+    borderRadius: 12,
+    paddingVertical: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  cravingSosSecondaryBtnText: {
+    color: '#c2d4cb',
+    fontSize: 12,
+    fontWeight: '700',
+  },
+
+  // Life Reclaimed Equivalents Grid
+  lifeReclaimedGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 10,
+    marginTop: 12,
+  },
+  lifeReclaimedCard: {
+    flexBasis: '47%',
+    flexGrow: 1,
+    backgroundColor: '#0d1813',
+    borderColor: 'rgba(56, 211, 159, 0.12)',
+    borderWidth: 1,
+    borderRadius: 14,
+    padding: 12,
+    alignItems: 'center',
+  },
+  lifeReclaimedIcon: {
+    fontSize: 22,
+    marginBottom: 4,
+  },
+  lifeReclaimedValue: {
+    color: '#38d39f',
+    fontSize: 16,
+    fontWeight: '800',
+  },
+  lifeReclaimedLabel: {
+    color: '#7a9e8b',
+    fontSize: 11,
+    marginTop: 2,
+    textAlign: 'center',
+  },
+
+  // Chrono-Shield Styles
+  chronoHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 10,
+  },
+  chronoIcon: {
+    fontSize: 28,
+    marginRight: 12,
+  },
+  chronoTitleWrap: {
+    flex: 1,
+  },
+  chronoBadgeRow: {
+    flexDirection: 'row',
+    marginBottom: 2,
+  },
+  chronoLevelBadge: {
+    fontSize: 11,
+    fontWeight: '900',
+    letterSpacing: 1,
+  },
+  chronoTitle: {
+    color: '#f1f5f3',
+    fontSize: 15,
+    fontWeight: '800',
+  },
+  chronoAdviceText: {
+    color: '#9cb1a6',
+    fontSize: 13,
+    lineHeight: 18,
+  },
+
+  // Milestones & Badges
+  milestonesGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 10,
+    marginTop: 12,
+  },
+  milestoneBadgeCard: {
+    flexBasis: '47%',
+    flexGrow: 1,
+    borderRadius: 14,
+    padding: 12,
+    alignItems: 'center',
+    borderWidth: 1,
+  },
+  milestoneUnlocked: {
+    backgroundColor: 'rgba(56, 211, 159, 0.08)',
+    borderColor: 'rgba(56, 211, 159, 0.35)',
+  },
+  milestoneLocked: {
+    backgroundColor: '#0e1613',
+    borderColor: '#1e2d25',
+    opacity: 0.6,
+  },
+  milestoneIcon: {
+    fontSize: 24,
+    marginBottom: 4,
+  },
+  milestoneName: {
+    fontSize: 13,
+    fontWeight: '800',
+    textAlign: 'center',
+  },
+  milestoneNameUnlocked: {
+    color: '#f1f5f3',
+  },
+  milestoneNameLocked: {
+    color: '#7a9e8b',
+  },
+  milestoneDesc: {
+    color: '#6e8579',
+    fontSize: 11,
+    textAlign: 'center',
+    marginTop: 2,
+    marginBottom: 8,
+  },
+  milestoneStatusTag: {
+    borderRadius: 6,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+  },
+  milestoneStatusTagUnlocked: {
+    backgroundColor: 'rgba(56, 211, 159, 0.2)',
+  },
+  milestoneStatusTagLocked: {
+    backgroundColor: '#1b2821',
+  },
+  milestoneStatusText: {
+    fontSize: 10,
+    fontWeight: '800',
+    letterSpacing: 0.5,
+  },
+  milestoneStatusTextUnlocked: {
+    color: '#38d39f',
+  },
+  milestoneStatusTextLocked: {
+    color: '#6e8579',
+  },
+
+  // HUD Style Selector
+  hudStyleSelectorRow: {
+    flexDirection: 'row',
+    gap: 8,
+    marginTop: 12,
+  },
+  hudStyleCard: {
+    flex: 1,
+    backgroundColor: '#0d1813',
+    borderColor: '#1d2c23',
+    borderWidth: 1,
+    borderRadius: 14,
+    padding: 12,
+    alignItems: 'center',
+  },
+  hudStyleCardSelected: {
+    borderColor: '#38d39f',
+    backgroundColor: 'rgba(56, 211, 159, 0.1)',
+  },
+  hudStyleIcon: {
+    fontSize: 15,
+    color: '#38d39f',
+    fontWeight: '800',
+    marginBottom: 4,
+  },
+  hudStyleLabel: {
+    color: '#9cb1a6',
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  hudStyleLabelSelected: {
+    color: '#f1f5f3',
+  },
+  hudStyleDesc: {
+    color: '#6e8579',
+    fontSize: 10,
+    textAlign: 'center',
+    marginTop: 2,
+  },
+
+  // Craving Modal Switcher & Tools
+  modalTabRow: {
+    flexDirection: 'row',
+    backgroundColor: '#090e0c',
+    borderRadius: 12,
+    padding: 4,
+    marginBottom: 16,
+    width: '100%',
+  },
+  modalTabBtn: {
+    flex: 1,
+    paddingVertical: 8,
+    alignItems: 'center',
+    borderRadius: 8,
+  },
+  modalTabBtnActive: {
+    backgroundColor: '#1b2d24',
+  },
+  modalTabBtnText: {
+    color: '#6e8579',
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  modalTabBtnTextActive: {
+    color: '#38d39f',
+  },
+  cravingContentWrap: {
+    width: '100%',
+    alignItems: 'center',
+  },
+  delayVisualWrap: {
+    marginVertical: 16,
+    alignItems: 'center',
+  },
+  delayTimerCircle: {
+    width: 150,
+    height: 150,
+    borderRadius: 75,
+    borderWidth: 5,
+    borderColor: '#38d39f',
+    backgroundColor: 'rgba(56, 211, 159, 0.08)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  delaySecondsText: {
+    color: '#f1f5f3',
+    fontSize: 36,
+    fontWeight: '900',
+  },
+  delaySublabel: {
+    color: '#7a9e8b',
+    fontSize: 12,
+    fontWeight: '700',
+    marginTop: 2,
+  },
+  delayStageText: {
+    color: '#c2d4cb',
+    fontSize: 13,
+    textAlign: 'center',
+    lineHeight: 18,
+    marginBottom: 18,
+    paddingHorizontal: 12,
+  },
+  delayActionBtnRow: {
+    flexDirection: 'row',
+    gap: 10,
+    width: '100%',
+    marginBottom: 16,
+  },
+  delayActionBtn: {
+    flex: 1,
+    backgroundColor: '#38d39f',
+    borderRadius: 12,
+    paddingVertical: 12,
+    alignItems: 'center',
+  },
+  delayActionBtnActive: {
+    backgroundColor: '#eab308',
+  },
+  delayActionBtnText: {
+    color: '#090e0c',
+    fontSize: 14,
+    fontWeight: '800',
+  },
+  delayResetBtn: {
+    backgroundColor: '#16281f',
+    borderRadius: 12,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#263d30',
+  },
+  delayResetBtnText: {
+    color: '#9cb1a6',
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  groundingCard: {
+    width: '100%',
+    backgroundColor: '#0d1813',
+    borderColor: 'rgba(56, 211, 159, 0.25)',
+    borderWidth: 1,
+    borderRadius: 18,
+    padding: 16,
+    marginVertical: 14,
+  },
+  groundingBadgeRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 10,
+  },
+  groundingSenseTag: {
+    backgroundColor: 'rgba(56, 211, 159, 0.2)',
+    color: '#38d39f',
+    fontSize: 12,
+    fontWeight: '800',
+    borderRadius: 6,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+  },
+  groundingStepCount: {
+    color: '#6e8579',
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  groundingTitle: {
+    color: '#f1f5f3',
+    fontSize: 17,
+    fontWeight: '800',
+    marginBottom: 6,
+  },
+  groundingPrompt: {
+    color: '#9cb1a6',
+    fontSize: 13,
+    lineHeight: 19,
+  },
+  groundingNextBtn: {
+    width: '100%',
+    backgroundColor: '#38d39f',
+    borderRadius: 12,
+    paddingVertical: 13,
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  groundingNextBtnText: {
+    color: '#090e0c',
+    fontSize: 14,
+    fontWeight: '800',
   },
 });
 
