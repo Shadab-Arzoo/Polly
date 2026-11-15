@@ -13,6 +13,7 @@ import com.facebook.react.bridge.ReactContextBaseJavaModule
 import com.facebook.react.bridge.ReactMethod
 import com.reelcount.tracking.PrototypeRuntimeStatus
 import com.reelcount.tracking.ReelCountAccessibilityService
+import com.reelcount.tracking.TargetPackages
 
 class PrototypeSettingsModule(context: ReactApplicationContext) : ReactContextBaseJavaModule(context) {
   override fun getName() = "PrototypeSettings"
@@ -25,8 +26,18 @@ class PrototypeSettingsModule(context: ReactApplicationContext) : ReactContextBa
       putBoolean("serviceConnected", isConnected)
       putInt("candidateCount", status.candidateCount)
       putInt("bufferedEventCount", status.bufferedEventCount)
+      putInt("instagramCount", status.packageCounts[TargetPackages.INSTAGRAM] ?: 0)
+      putInt("tiktokCount", status.packageCounts[TargetPackages.TIKTOK] ?: 0)
+      putInt("youtubeCount", status.packageCounts[TargetPackages.YOUTUBE] ?: 0)
+      putInt("snapchatCount", status.packageCounts[TargetPackages.SNAPCHAT] ?: 0)
     }
     promise.resolve(result)
+  }
+
+  @ReactMethod
+  fun resetCounters(promise: Promise) {
+    PrototypeRuntimeStatus.reset()
+    promise.resolve(null)
   }
 
   @ReactMethod

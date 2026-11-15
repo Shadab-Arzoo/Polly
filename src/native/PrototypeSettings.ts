@@ -4,11 +4,16 @@ export type PrototypeStatus = {
   serviceConnected: boolean;
   candidateCount: number;
   bufferedEventCount: number;
+  instagramCount?: number;
+  tiktokCount?: number;
+  youtubeCount?: number;
+  snapchatCount?: number;
 };
 
 type PrototypeSettingsModule = {
   openAccessibilitySettings(): Promise<void>;
   getPrototypeStatus(): Promise<PrototypeStatus>;
+  resetCounters(): Promise<void>;
 };
 
 const { PrototypeSettings } = NativeModules as {
@@ -30,8 +35,18 @@ export default {
         serviceConnected: false,
         candidateCount: 0,
         bufferedEventCount: 0,
+        instagramCount: 0,
+        tiktokCount: 0,
+        youtubeCount: 0,
+        snapchatCount: 0,
       });
     }
     return PrototypeSettings.getPrototypeStatus();
+  },
+  resetCounters(): Promise<void> {
+    if (!PrototypeSettings?.resetCounters) {
+      return Promise.resolve();
+    }
+    return PrototypeSettings.resetCounters();
   },
 };

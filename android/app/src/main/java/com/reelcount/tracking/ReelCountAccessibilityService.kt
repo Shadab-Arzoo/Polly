@@ -29,7 +29,7 @@ class ReelCountAccessibilityService : AccessibilityService() {
     if (trace.size == MAX_TRACE_EVENTS) trace.removeFirst()
     trace.addLast(metadata)
     val candidate = reducer.reduce(metadata)
-    PrototypeRuntimeStatus.recordEvent(candidate, trace.size)
+    PrototypeRuntimeStatus.recordEvent(candidate, trace.size, packageName)
     handler.removeCallbacks(clearIdleState)
     handler.postDelayed(clearIdleState, TRACE_IDLE_TIMEOUT_MS)
   }
