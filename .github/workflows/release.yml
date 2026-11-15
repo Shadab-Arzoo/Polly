@@ -1,0 +1,89 @@
+name: Build & Publish Release APK
+
+on:
+  push:
+    branches:
+      - main
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build-and-release:
+    name: Build & Release APK
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install Dependencies
+        run: npm ci
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Make Gradlew Executable
+        run: chmod +x android/gradlew
+
+      - name: Build Debug APK
+        working-directory: android
+        run: ./gradlew assembleDebug --no-daemon --console=plain
+
+      - name: Create Release and Upload APK
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          VERSION="v0.1.${{ github.run_number }}"
+          APK_FILE="android/app/build/outputs/apk/debug/app-debug.apk"
+          RELEASE_APK="ReelCount-${VERSION}.apk"
+          cp "$APK_FILE" "$RELEASE_APK"
+
+          COMMIT_TITLE=$(git log -1 --pretty=%s)
+          RELEASE_TITLE="ReelCount ${VERSION} - ${COMMIT_TITLE}"
+
+          cat << 'EOF' > release_notes.md
+          ## 📱 ReelCount ${VERSION}
+
+          ### 🚀 What's Updated in This Release:
+          - **Change**: ${COMMIT_TITLE}
+          - **Commit**: `${{ github.sha }}`
+
+          ### ✨ Key Features Included:
+          - **Live Short Counter**: Tracks scrolls on Instagram Reels, TikTok, YouTube Shorts, and Snapchat.
+          - **App-Open Notifications**: Alerts you as soon as you launch a short-video app.
+          - **Floating On-Screen HUD**: Real-time draggable counter overlay that increments on every swipe.
+          - **Daily Limits & Timers**: Set scroll targets and time limits with doomscroll warnings.
+          - **Block & Focus Mode**: 15-minute focus session timer and distraction blocking toggles.
+
+          ### 📥 Download & Install Instructions:
+          1. Download the attached **`${RELEASE_APK}`** below directly to your Android device.
+          2. Tap the downloaded file to install (grant your browser permission to install APKs if prompted).
+          3. *On Android 13+*: Sideloaded apps have restricted settings by default. If the accessibility toggle is disabled or grayed out:
+             - Open **Settings → Apps → ReelCount → ⋮ (menu) → Allow restricted settings**.
+             - Then go to **Settings → Accessibility → Installed apps → ReelCount** and enable it.
+          EOF
+
+          sed -i "s/\${VERSION}/${VERSION}/g" release_notes.md
+          sed -i "s/\${RELEASE_APK}/${RELEASE_APK}/g" release_notes.md
+          sed -i "s/\${COMMIT_TITLE}/${COMMIT_TITLE}/g" release_notes.md
+
+          gh release create "$VERSION" "$RELEASE_APK" \
+            --title "$RELEASE_TITLE" \
+            --notes-file release_notes.md

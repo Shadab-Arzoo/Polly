@@ -26,3 +26,4 @@ android/app/.externalNativeBuild/
 # Temporary diagnostics
 *.trace
 *.log
+*.apk
