@@ -20,6 +20,9 @@ type Tab = 'counter' | 'timers' | 'block' | 'settings';
 type BreathePhase = 'Inhale' | 'Hold' | 'Exhale';
 type CravingTab = 'breathing' | 'delay' | 'grounding';
 type HudStyle = 'pill' | 'dot' | 'warning_only';
+type ThemeAccent = 'emerald' | 'cyan' | 'amethyst' | 'amber';
+type UserMood = 'zen' | 'focused' | 'distracted' | 'craving';
+type FocusSoundscape = 'rain' | 'forest' | 'waves' | 'cafe' | 'none';
 
 function App() {
   const [activeTab, setActiveTab] = useState<Tab>('counter');
@@ -36,6 +39,14 @@ function App() {
   const [bedtimeShield, setBedtimeShield] = useState(false);
   const [weeklyRecapAlert, setWeeklyRecapAlert] = useState(true);
   const [hudStyle, setHudStyle] = useState<HudStyle>('pill');
+  const [themeAccent, setThemeAccent] = useState<ThemeAccent>('emerald');
+  const [selectedIntention, setSelectedIntention] = useState<string>(
+    'Deep Work First, Feeds Later',
+  );
+  const [todayMood, setTodayMood] = useState<UserMood | null>(null);
+  const [dopamineFastActive, setDopamineFastActive] = useState<boolean>(false);
+  const [soundscape, setSoundscape] = useState<FocusSoundscape>('rain');
+  const [soundscapePlaying, setSoundscapePlaying] = useState<boolean>(false);
 
   // Block & Focus state
   const [focusModeActive, setFocusModeActive] = useState(false);
@@ -511,6 +522,86 @@ function App() {
     },
   ];
 
+  const themeColors = {
+    emerald: {
+      primary: '#38d39f',
+      primaryDark: '#10b981',
+      glow: 'rgba(56, 211, 159, 0.15)',
+      border: 'rgba(56, 211, 159, 0.4)',
+      name: 'Emerald Sanctuary',
+      icon: '🌿',
+    },
+    cyan: {
+      primary: '#22d3ee',
+      primaryDark: '#06b6d4',
+      glow: 'rgba(34, 211, 238, 0.15)',
+      border: 'rgba(34, 211, 238, 0.4)',
+      name: 'Cyber Cyan',
+      icon: '🌌',
+    },
+    amethyst: {
+      primary: '#c084fc',
+      primaryDark: '#a855f7',
+      glow: 'rgba(192, 132, 252, 0.15)',
+      border: 'rgba(192, 132, 252, 0.4)',
+      name: 'Deep Amethyst',
+      icon: '🔮',
+    },
+    amber: {
+      primary: '#fbbf24',
+      primaryDark: '#f59e0b',
+      glow: 'rgba(251, 191, 36, 0.15)',
+      border: 'rgba(251, 191, 36, 0.4)',
+      name: 'Solar Amber',
+      icon: '🌅',
+    },
+  };
+
+  const currentTheme = themeColors[themeAccent];
+
+  // Digital Wellbeing Vitality Score (0-100)
+  const calculateVitalityScore = () => {
+    let score = 100;
+    if (totalShorts > dailyLimit) {
+      const over = totalShorts - dailyLimit;
+      score -= Math.min(45, over * 2);
+    } else {
+      const headroom = dailyLimit - totalShorts;
+      score += Math.min(5, Math.floor(headroom / 10));
+    }
+    if (estMinutes > dailyTimeLimitMin) {
+      score -= Math.min(30, (estMinutes - dailyTimeLimitMin) * 1.5);
+    }
+    score += Math.min(10, mindfulStreak * 2);
+    if (bedtimeShield) {
+      score += 5;
+    }
+    return Math.max(10, Math.min(100, Math.round(score)));
+  };
+
+  const vitalityScore = calculateVitalityScore();
+
+  const intentionsList = [
+    { id: '1', title: 'Deep Work First, Feeds Later', icon: '🛡️' },
+    { id: '2', title: 'Conscious Intent, No Idle Swipes', icon: '🌿' },
+    { id: '3', title: 'Screens Off 1hr Before Sleep', icon: '🌙' },
+    { id: '4', title: 'Three Breaths Before Unlocking', icon: '🧘' },
+  ];
+
+  const soundscapesList = [
+    { id: 'rain' as FocusSoundscape, name: 'Gentle Rain', icon: '🌧️', desc: 'Calming rain drops' },
+    { id: 'forest' as FocusSoundscape, name: 'Pine Forest', icon: '🌲', desc: 'Wind through trees' },
+    { id: 'waves' as FocusSoundscape, name: 'Ocean Waves', icon: '🌊', desc: 'Rhythmic surf' },
+    { id: 'cafe' as FocusSoundscape, name: 'Quiet Library', icon: '☕', desc: 'Soft ambient hum' },
+  ];
+
+  const moodsList = [
+    { id: 'zen' as UserMood, label: 'Zen & Calm', icon: '😊', tip: 'Your mind is present and centered.' },
+    { id: 'focused' as UserMood, label: 'Laser Focused', icon: '🎯', tip: 'Keep this deep momentum going.' },
+    { id: 'distracted' as UserMood, label: 'Mildly Restless', icon: '😐', tip: 'Take a sip of water or 1m breath.' },
+    { id: 'craving' as UserMood, label: 'Overstimulated', icon: '🌊', tip: 'Surf the wave with Craving SOS.' },
+  ];
+
   // Format seconds into MM:SS
   const formatTimer = (sec: number) => {
     const m = Math.floor(sec / 60);
@@ -718,6 +809,71 @@ function App() {
           <Text style={styles.activeFocusBannerAction}>View →</Text>
         </Pressable>
       )}
+
+      {/* Daily Intention Anchor */}
+      <View style={styles.intentionCard}>
+        <View style={styles.intentionHeaderRow}>
+          <Text style={styles.intentionEyebrow}>DAILY COMPASS</Text>
+          <Text style={styles.intentionTag}>Conscious Intent</Text>
+        </View>
+        <Text style={styles.intentionText}>"{selectedIntention}"</Text>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.intentionPillsRow}>
+          {intentionsList.map(item => (
+            <Pressable
+              key={item.id}
+              onPress={() => setSelectedIntention(item.title)}
+              style={[
+                styles.intentionPill,
+                selectedIntention === item.title && styles.intentionPillSelected,
+              ]}
+            >
+              <Text style={styles.intentionPillIcon}>{item.icon}</Text>
+              <Text
+                style={[
+                  styles.intentionPillText,
+                  selectedIntention === item.title && styles.intentionPillTextSelected,
+                ]}
+              >
+                {item.title}
+              </Text>
+            </Pressable>
+          ))}
+        </ScrollView>
+      </View>
+
+      {/* Digital Wellbeing Vitality Score Banner */}
+      <View style={styles.vitalityCard}>
+        <View style={styles.vitalityLeftCol}>
+          <Text style={styles.vitalityEyebrow}>DIGITAL WELLBEING VITALITY</Text>
+          <View style={styles.vitalityScoreRow}>
+            <Text style={styles.vitalityScoreNum}>{vitalityScore}</Text>
+            <Text style={styles.vitalityScoreMax}>/ 100</Text>
+          </View>
+          <Text style={styles.vitalityStatusText}>
+            {vitalityScore >= 85
+              ? '🌟 Optimal Flow — High clarity & minimal reflex distraction'
+              : vitalityScore >= 65
+              ? '🌱 Healthy Balance — Good awareness; keep under daily cap'
+              : '⚡ High Dopamine Drag — Engage Craving SOS to reset'}
+          </Text>
+        </View>
+        <View style={styles.vitalityRingWrap}>
+          <View
+            style={[
+              styles.vitalityMiniRing,
+              vitalityScore >= 85
+                ? styles.vitalityRingHigh
+                : vitalityScore >= 65
+                ? styles.vitalityRingMed
+                : styles.vitalityRingLow,
+            ]}
+          >
+            <Text style={styles.vitalityRingIcon}>
+              {vitalityScore >= 85 ? '✨' : vitalityScore >= 65 ? '🌿' : '⚡'}
+            </Text>
+          </View>
+        </View>
+      </View>
 
       {/* Hero Counter Card */}
       <View style={[styles.heroCard, isOverLimit && styles.heroCardOverLimit]}>
@@ -1192,6 +1348,48 @@ function App() {
           When you open Instagram, TikTok, or YouTube, a draggable floating pill appears showing your reel count in real time and vibrates gently on every swipe.
         </Text>
       </View>
+
+      {/* Daily Reflection & Mind Check-In */}
+      <View style={styles.sectionCard}>
+        <View style={styles.cardHeaderWithAction}>
+          <Text style={styles.cardSectionTitle}>🧠 Attention & Mood Check-In</Text>
+          <Text style={styles.cardSelectedHighlight}>
+            {todayMood ? moodsList.find(m => m.id === todayMood)?.label : 'Log Feeling'}
+          </Text>
+        </View>
+        <Text style={styles.cardSubtitle}>
+          Reflect on how your cognitive energy and impulse clarity feel right now.
+        </Text>
+        <View style={styles.moodGrid}>
+          {moodsList.map(moodItem => (
+            <Pressable
+              key={moodItem.id}
+              onPress={() => setTodayMood(moodItem.id)}
+              style={[
+                styles.moodCard,
+                todayMood === moodItem.id && styles.moodCardSelected,
+              ]}
+            >
+              <Text style={styles.moodIcon}>{moodItem.icon}</Text>
+              <Text
+                style={[
+                  styles.moodLabel,
+                  todayMood === moodItem.id && styles.moodLabelSelected,
+                ]}
+              >
+                {moodItem.label}
+              </Text>
+            </Pressable>
+          ))}
+        </View>
+        {todayMood && (
+          <View style={styles.moodTipBox}>
+            <Text style={styles.moodTipText}>
+              💡 {moodsList.find(m => m.id === todayMood)?.tip}
+            </Text>
+          </View>
+        )}
+      </View>
     </ScrollView>
   );
 
@@ -1628,6 +1826,102 @@ function App() {
           </View>
         </Pressable>
       </View>
+
+      {/* 24-Hour Dopamine Sabbath */}
+      <View style={[styles.sectionCard, dopamineFastActive && styles.sabbathCardActive]}>
+        <View style={styles.cardHeaderWithAction}>
+          <Text style={styles.cardSectionTitle}>🧘 24-Hour Digital Sabbath</Text>
+          <View style={[styles.statusBadgeSmall, dopamineFastActive ? styles.badgeBlocked : styles.badgeNormal]}>
+            <Text style={[styles.statusBadgeSmallText, dopamineFastActive ? styles.textBlocked : styles.textNormal]}>
+              {dopamineFastActive ? 'FAST ACTIVE' : 'READY'}
+            </Text>
+          </View>
+        </View>
+        <Text style={styles.cardSubtitle}>
+          Lock all short-form feeds for 24 hours to deeply reset baseline dopamine sensitivity.
+        </Text>
+        <Pressable
+          onPress={() => {
+            const next = !dopamineFastActive;
+            setDopamineFastActive(next);
+            if (next) {
+              const allPkgs = Object.values(TARGET_PACKAGES);
+              PrototypeSettings.setFocusMode(true, 1440, allPkgs).catch(() => {});
+              setFocusTimerSeconds(1440 * 60);
+              setFocusTimerRunning(true);
+              setFocusModeActive(true);
+              Alert.alert(
+                '24-Hour Digital Sabbath Begun! 🧘',
+                'All monitored feeds are strictly locked until tomorrow. Reclaim your stillness.',
+              );
+            } else {
+              PrototypeSettings.setFocusMode(false, 0, []).catch(() => {});
+              setFocusTimerRunning(false);
+              setFocusModeActive(false);
+              Alert.alert('Digital Sabbath Ended', 'Distraction feeds have been unlocked.');
+            }
+          }}
+          style={[styles.sabbathBtn, dopamineFastActive && styles.sabbathBtnActive]}
+        >
+          <Text style={[styles.sabbathBtnText, dopamineFastActive && styles.sabbathBtnTextActive]}>
+            {dopamineFastActive ? 'End 24-Hour Fast' : 'Begin 24-Hour Dopamine Fast 🌿'}
+          </Text>
+        </Pressable>
+      </View>
+
+      {/* Focus Soundscape Ambient Companion */}
+      <View style={styles.sectionCard}>
+        <View style={styles.cardHeaderWithAction}>
+          <Text style={styles.cardSectionTitle}>🎧 Focus Soundscapes</Text>
+          <Pressable
+            onPress={() => setSoundscapePlaying(prev => !prev)}
+            style={styles.soundscapeToggleBtn}
+          >
+            <Text style={styles.soundscapeToggleBtnText}>
+              {soundscapePlaying ? '⏸️ Stop Audio' : '▶️ Play Audio'}
+            </Text>
+          </Pressable>
+        </View>
+        <Text style={styles.cardSubtitle}>
+          Calming ambient backdrop to accompany deep work sessions.
+        </Text>
+        <View style={styles.soundscapeRow}>
+          {soundscapesList.map(sItem => (
+            <Pressable
+              key={sItem.id}
+              onPress={() => {
+                setSoundscape(sItem.id);
+                setSoundscapePlaying(true);
+              }}
+              style={[
+                styles.soundscapeCard,
+                soundscape === sItem.id && styles.soundscapeCardActive,
+              ]}
+            >
+              <Text style={styles.soundscapeIcon}>{sItem.icon}</Text>
+              <Text
+                style={[
+                  styles.soundscapeName,
+                  soundscape === sItem.id && styles.soundscapeNameActive,
+                ]}
+              >
+                {sItem.name}
+              </Text>
+            </Pressable>
+          ))}
+        </View>
+        {soundscapePlaying && (
+          <View style={styles.equalizerRow}>
+            <View style={[styles.eqBar, styles.eqBar1]} />
+            <View style={[styles.eqBar, styles.eqBar2]} />
+            <View style={[styles.eqBar, styles.eqBar3]} />
+            <View style={[styles.eqBar, styles.eqBar4]} />
+            <Text style={styles.eqLabel}>
+              Playing {soundscapesList.find(s => s.id === soundscape)?.name} ambience
+            </Text>
+          </View>
+        )}
+      </View>
     </ScrollView>
   );
 
@@ -1738,6 +2032,38 @@ function App() {
               <Text style={styles.hudStyleDesc}>{styleOpt.desc}</Text>
             </Pressable>
           ))}
+        </View>
+      </View>
+
+      {/* Theme Accent Customization */}
+      <View style={styles.sectionCard}>
+        <View style={styles.cardHeaderWithAction}>
+          <Text style={styles.cardSectionTitle}>Sanctuary Theme Palette</Text>
+          <Text style={styles.cardSelectedHighlight}>{currentTheme.name}</Text>
+        </View>
+        <Text style={styles.cardSubtitle}>
+          Personalize your visual accent illumination across dashboard rings and widgets.
+        </Text>
+        <View style={styles.themePaletteRow}>
+          {(['emerald', 'cyan', 'amethyst', 'amber'] as ThemeAccent[]).map(accentKey => {
+            const t = themeColors[accentKey];
+            const isSelected = themeAccent === accentKey;
+            return (
+              <Pressable
+                key={accentKey}
+                onPress={() => setThemeAccent(accentKey)}
+                style={[
+                  styles.themeChip,
+                  isSelected && styles.themeChipSelected,
+                ]}
+              >
+                <Text style={styles.themeChipIcon}>{t.icon}</Text>
+                <Text style={[styles.themeChipName, isSelected && styles.themeChipNameSelected]}>
+                  {t.name.split(' ')[0]}
+                </Text>
+              </Pressable>
+            );
+          })}
         </View>
       </View>
 
@@ -3837,6 +4163,318 @@ const styles = StyleSheet.create({
     color: '#090e0c',
     fontSize: 14,
     fontWeight: '800',
+  },
+
+  // Daily Intention Anchor
+  intentionCard: {
+    backgroundColor: '#0c1a14',
+    borderColor: 'rgba(56, 211, 159, 0.25)',
+    borderWidth: 1,
+    borderRadius: 18,
+    padding: 16,
+    marginBottom: 16,
+  },
+  intentionHeaderRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 6,
+  },
+  intentionEyebrow: {
+    color: '#38d39f',
+    fontSize: 10,
+    fontWeight: '900',
+    letterSpacing: 1.2,
+  },
+  intentionTag: {
+    color: '#6e8579',
+    fontSize: 11,
+    fontWeight: '600',
+  },
+  intentionText: {
+    color: '#f1f5f3',
+    fontSize: 15,
+    fontWeight: '800',
+    marginBottom: 12,
+  },
+  intentionPillsRow: {
+    flexDirection: 'row',
+    gap: 8,
+    paddingVertical: 2,
+  },
+  intentionPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#12221b',
+    borderColor: '#23382d',
+    borderWidth: 1,
+    borderRadius: 10,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+  },
+  intentionPillSelected: {
+    borderColor: '#38d39f',
+    backgroundColor: 'rgba(56, 211, 159, 0.15)',
+  },
+  intentionPillIcon: {
+    fontSize: 12,
+    marginRight: 6,
+  },
+  intentionPillText: {
+    color: '#8aa395',
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  intentionPillTextSelected: {
+    color: '#38d39f',
+  },
+
+  // Digital Wellbeing Vitality Score
+  vitalityCard: {
+    backgroundColor: '#0f2319',
+    borderColor: 'rgba(56, 211, 159, 0.35)',
+    borderWidth: 1.5,
+    borderRadius: 18,
+    padding: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  vitalityLeftCol: {
+    flex: 1,
+  },
+  vitalityEyebrow: {
+    color: '#38d39f',
+    fontSize: 10,
+    fontWeight: '900',
+    letterSpacing: 1,
+    marginBottom: 2,
+  },
+  vitalityScoreRow: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
+    marginVertical: 2,
+  },
+  vitalityScoreNum: {
+    color: '#f1f5f3',
+    fontSize: 32,
+    fontWeight: '900',
+  },
+  vitalityScoreMax: {
+    color: '#6e8579',
+    fontSize: 15,
+    fontWeight: '700',
+    marginLeft: 4,
+  },
+  vitalityStatusText: {
+    color: '#9cb1a6',
+    fontSize: 12,
+    lineHeight: 16,
+    marginTop: 2,
+  },
+  vitalityRingWrap: {
+    marginLeft: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  vitalityMiniRing: {
+    width: 58,
+    height: 58,
+    borderRadius: 29,
+    borderWidth: 4,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  vitalityRingHigh: {
+    borderColor: '#38d39f',
+    backgroundColor: 'rgba(56, 211, 159, 0.15)',
+  },
+  vitalityRingMed: {
+    borderColor: '#fbbf24',
+    backgroundColor: 'rgba(251, 191, 36, 0.15)',
+  },
+  vitalityRingLow: {
+    borderColor: '#f87171',
+    backgroundColor: 'rgba(248, 113, 113, 0.15)',
+  },
+  vitalityRingIcon: {
+    fontSize: 22,
+  },
+
+  // Daily Mood Check-In
+  moodGrid: {
+    flexDirection: 'row',
+    gap: 8,
+    marginTop: 12,
+  },
+  moodCard: {
+    flex: 1,
+    backgroundColor: '#0d1813',
+    borderColor: '#1d2c23',
+    borderWidth: 1,
+    borderRadius: 14,
+    paddingVertical: 12,
+    paddingHorizontal: 4,
+    alignItems: 'center',
+  },
+  moodCardSelected: {
+    borderColor: '#38d39f',
+    backgroundColor: 'rgba(56, 211, 159, 0.12)',
+  },
+  moodIcon: {
+    fontSize: 22,
+    marginBottom: 4,
+  },
+  moodLabel: {
+    color: '#8aa395',
+    fontSize: 11,
+    fontWeight: '700',
+    textAlign: 'center',
+  },
+  moodLabelSelected: {
+    color: '#38d39f',
+  },
+  moodTipBox: {
+    backgroundColor: 'rgba(56, 211, 159, 0.08)',
+    borderRadius: 10,
+    padding: 10,
+    marginTop: 12,
+    borderLeftWidth: 3,
+    borderLeftColor: '#38d39f',
+  },
+  moodTipText: {
+    color: '#c2d4cb',
+    fontSize: 12,
+    lineHeight: 16,
+  },
+
+  // 24-Hour Sabbath
+  sabbathCardActive: {
+    borderColor: 'rgba(248, 113, 113, 0.4)',
+    backgroundColor: '#1a0f12',
+  },
+  sabbathBtn: {
+    backgroundColor: '#1b2d24',
+    borderRadius: 12,
+    paddingVertical: 13,
+    alignItems: 'center',
+    marginTop: 12,
+    borderWidth: 1,
+    borderColor: '#2b473a',
+  },
+  sabbathBtnActive: {
+    backgroundColor: '#7f1d1d',
+    borderColor: '#f87171',
+  },
+  sabbathBtnText: {
+    color: '#38d39f',
+    fontSize: 14,
+    fontWeight: '800',
+  },
+  sabbathBtnTextActive: {
+    color: '#fee2e2',
+  },
+
+  // Focus Soundscapes
+  soundscapeToggleBtn: {
+    backgroundColor: '#1a2c22',
+    borderRadius: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderWidth: 1,
+    borderColor: '#2d4a3b',
+  },
+  soundscapeToggleBtnText: {
+    color: '#38d39f',
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  soundscapeRow: {
+    flexDirection: 'row',
+    gap: 8,
+    marginTop: 12,
+  },
+  soundscapeCard: {
+    flex: 1,
+    backgroundColor: '#0d1813',
+    borderColor: '#1d2c23',
+    borderWidth: 1,
+    borderRadius: 12,
+    paddingVertical: 10,
+    alignItems: 'center',
+  },
+  soundscapeCardActive: {
+    borderColor: '#38d39f',
+    backgroundColor: 'rgba(56, 211, 159, 0.12)',
+  },
+  soundscapeIcon: {
+    fontSize: 20,
+    marginBottom: 2,
+  },
+  soundscapeName: {
+    color: '#8aa395',
+    fontSize: 11,
+    fontWeight: '700',
+    textAlign: 'center',
+  },
+  soundscapeNameActive: {
+    color: '#38d39f',
+  },
+  equalizerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 12,
+    padding: 10,
+    backgroundColor: '#0a1410',
+    borderRadius: 10,
+  },
+  eqBar: {
+    width: 4,
+    backgroundColor: '#38d39f',
+    borderRadius: 2,
+    marginRight: 4,
+  },
+  eqBar1: { height: 14 },
+  eqBar2: { height: 22 },
+  eqBar3: { height: 18 },
+  eqBar4: { height: 12 },
+  eqLabel: {
+    color: '#7a9e8b',
+    fontSize: 12,
+    marginLeft: 8,
+    fontWeight: '600',
+  },
+
+  // Theme Palette
+  themePaletteRow: {
+    flexDirection: 'row',
+    gap: 8,
+    marginTop: 12,
+  },
+  themeChip: {
+    flex: 1,
+    backgroundColor: '#0d1813',
+    borderColor: '#1d2c23',
+    borderWidth: 1,
+    borderRadius: 12,
+    paddingVertical: 12,
+    alignItems: 'center',
+  },
+  themeChipSelected: {
+    borderColor: '#38d39f',
+    backgroundColor: 'rgba(56, 211, 159, 0.12)',
+  },
+  themeChipIcon: {
+    fontSize: 20,
+    marginBottom: 2,
+  },
+  themeChipName: {
+    color: '#8aa395',
+    fontSize: 11,
+    fontWeight: '700',
+  },
+  themeChipNameSelected: {
+    color: '#f1f5f3',
   },
 });
 
