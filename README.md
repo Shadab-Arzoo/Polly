@@ -13,7 +13,7 @@ See [ROADMAP.md](ROADMAP.md) for phases and the task board, and [docs/architectu
 - React Native and TypeScript for the Android app UI.
 - Kotlin Android AccessibilityService prototype, limited to explicitly enabled supported apps and allowlisted event metadata.
 - Local persistence for aggregate counts after feasibility is demonstrated and the schema is reviewed.
-- React Native navigation for app screens.
+- React Native and TypeScript for the initial Android screen.
 
 ## Privacy boundary for the first prototype
 
@@ -21,4 +21,34 @@ The approved prototype scope is opt-in, app-filtered event measurement that may 
 
 ## Build instructions
 
-Not available yet. The repository has no application dependencies or Android project until the implementation phase creates them.
+Install Node.js (22.11 or newer), JDK 17, Android Studio and the Android SDK, then install JavaScript dependencies:
+
+```sh
+npm install
+npm run start
+```
+
+In another terminal, with an Android emulator or device available:
+
+```sh
+npm run android
+```
+
+Checks available without a device:
+
+```sh
+npm run lint
+npm run typecheck
+npm test -- --runInBand
+cd android && ./gradlew :app:testDebugUnitTest :app:assembleDebug
+```
+
+The package identifiers in the service configuration are provisional. Installed package names, app versions, and event-transition accuracy have not been verified on physical devices. The prototype's candidate transitions are experimental and must not be presented as reliable counts.
+
+### Prototype tester observability
+
+The prototype provides in-memory diagnostic feedback on the main screen to confirm whether the accessibility service is connected, how many experimental candidate transitions were observed during the current service session, and the current transient buffer count. All diagnostics remain in volatile memory and are cleared when the service stops or restarts. No UI content, texts, trees, screenshots, or persisted event traces are collected.
+
+### Installing a pre-release APK
+
+On Android 13 and newer, Android may block Accessibility access for apps sideloaded outside an app store. If the ReelCount service is disabled or grayed out in Accessibility settings, open **Settings → Apps → ReelCount → ⋮ → Allow restricted settings**, confirm the prompt, then return to **Settings → Accessibility → Installed apps → ReelCount** to enable it.
