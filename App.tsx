@@ -18,11 +18,13 @@ import PrototypeSettings, {
 
 type Tab = 'counter' | 'timers' | 'block' | 'settings';
 type BreathePhase = 'Inhale' | 'Hold' | 'Exhale';
-type CravingTab = 'breathing' | 'delay' | 'grounding';
+type CravingTab = 'breathing' | 'delay' | 'grounding' | 'stroop';
 type HudStyle = 'pill' | 'dot' | 'warning_only';
-type ThemeAccent = 'emerald' | 'cyan' | 'amethyst' | 'amber';
+type ThemeAccent = 'emerald' | 'cyan' | 'amethyst' | 'amber' | 'monochrome';
 type UserMood = 'zen' | 'focused' | 'distracted' | 'craving';
-type FocusSoundscape = 'rain' | 'forest' | 'waves' | 'cafe' | 'none';
+type FocusSoundscape = 'rain' | 'forest' | 'waves' | 'cafe' | 'cosmic' | 'none';
+type TriggerType = 'boredom' | 'stress' | 'procrastination' | 'habit' | 'fomo';
+
 
 function App() {
   const [activeTab, setActiveTab] = useState<Tab>('counter');
@@ -70,6 +72,41 @@ function App() {
   const [delaySeconds, setDelaySeconds] = useState(90);
   const [delayRunning, setDelayRunning] = useState(false);
   const [groundingStep, setGroundingStep] = useState(0);
+  // Zen Mastery & XP Progression
+  const [zenXp, setZenXp] = useState(380);
+  const [dailyQuestsClaimed, setDailyQuestsClaimed] = useState<{
+    compass: boolean;
+    reset: boolean;
+    shield: boolean;
+    cap: boolean;
+  }>({
+    compass: true,
+    reset: false,
+    shield: false,
+    cap: false,
+  });
+
+  // Stroop Cognitive Challenge State
+  const [stroopRound, setStroopRound] = useState(0);
+  const [stroopFeedback, setStroopFeedback] = useState<string | null>(null);
+  const [stroopFinished, setStroopFinished] = useState(false);
+
+  // 24-Hour Dopamine Clock
+  const [selectedDopamineHour, setSelectedDopamineHour] = useState<number>(new Date().getHours());
+
+  // Trigger & Craving Journal
+  const [triggersLog, setTriggersLog] = useState<Record<TriggerType, number>>({
+    boredom: 3,
+    stress: 2,
+    procrastination: 4,
+    habit: 5,
+    fomo: 1,
+  });
+  const [selectedTrigger, setSelectedTrigger] = useState<TriggerType>('procrastination');
+
+  // Soundscape Duration
+  const [soundscapeDurationMins, setSoundscapeDurationMins] = useState(25);
+
 
   const [prototypeStatus, setPrototypeStatus] = useState<PrototypeStatus>({
     serviceConnected: false,
@@ -555,9 +592,150 @@ function App() {
       name: 'Solar Amber',
       icon: '🌅',
     },
+    monochrome: {
+      primary: '#e4e4e7',
+      primaryDark: '#a1a1aa',
+      glow: 'rgba(244, 244, 245, 0.12)',
+      border: 'rgba(244, 244, 245, 0.35)',
+      name: 'Obsidian Minimalist',
+      icon: '🌑',
+    },
   };
 
   const currentTheme = themeColors[themeAccent];
+
+  // Zen Level & Attention Mastery
+  const getZenLevel = (xp: number) => {
+    if (xp >= 1200) return { level: 5, title: 'Zen Grandmaster', icon: '🌟', min: 1200, max: 2000 };
+    if (xp >= 700) return { level: 4, title: 'Attention Sovereign', icon: '👑', min: 700, max: 1200 };
+    if (xp >= 350) return { level: 3, title: 'Dopamine Alchemist', icon: '🔮', min: 350, max: 700 };
+    if (xp >= 150) return { level: 2, title: 'Feed Resistor', icon: '🛡️', min: 150, max: 350 };
+    return { level: 1, title: 'Mindful Spark', icon: '🌱', min: 0, max: 150 };
+  };
+  const zenLevel = getZenLevel(zenXp);
+  const xpInCurrentLevel = zenXp - zenLevel.min;
+  const xpNeededForLevel = zenLevel.max - zenLevel.min;
+  const xpPercent = Math.min(100, Math.round((xpInCurrentLevel / xpNeededForLevel) * 100));
+
+  // Stroop Cognitive Conflict Trials
+  const STROOP_TRIALS = [
+    { text: 'BLUE', color: '#38d39f', colorName: 'Emerald' },
+    { text: 'RED', color: '#22d3ee', colorName: 'Cyan' },
+    { text: 'AMBER', color: '#c084fc', colorName: 'Amethyst' },
+    { text: 'GREEN', color: '#fbbf24', colorName: 'Amber' },
+    { text: 'CYAN', color: '#38d39f', colorName: 'Emerald' },
+  ];
+
+  const handleStroopAnswer = (chosenColorName: string) => {
+    const currentTrial = STROOP_TRIALS[stroopRound % STROOP_TRIALS.length];
+    if (chosenColorName === currentTrial.colorName) {
+      if (stroopRound >= 2) {
+        setStroopFinished(true);
+        setZenXp(prev => prev + 40);
+        setDailyQuestsClaimed(prev => ({ ...prev, reset: true }));
+      } else {
+        setStroopRound(prev => prev + 1);
+        setStroopFeedback('✨ Correct! Prefrontal cortex taking over.');
+      }
+    } else {
+      setStroopFeedback('⚠️ Autopilot reflex detected! Focus on the INK COLOR.');
+    }
+  };
+
+  const resetStroop = () => {
+    setStroopRound(0);
+    setStroopFeedback(null);
+    setStroopFinished(false);
+  };
+
+  // 24-Hour Dopamine Clock Analysis
+  const getHourDopamineProfile = (h: number) => {
+    if (h >= 6 && h < 11) {
+      return {
+        period: 'Morning Awakening & Focus',
+        risk: 'Low Risk · High Willpower',
+        color: '#38d39f',
+        icon: '☀️',
+        tip: 'Cortisol awakening response primes natural clarity. Keep short feeds locked during this sacred window.',
+      };
+    }
+    if (h >= 11 && h < 14) {
+      return {
+        period: 'Peak Execution Window',
+        risk: 'Optimal Productivity',
+        color: '#22d3ee',
+        icon: '🎯',
+        tip: 'High executive stamina. Perfect time for deep work sprints before the afternoon energy dip.',
+      };
+    }
+    if (h >= 14 && h < 18) {
+      return {
+        period: 'Afternoon Slump & Vulnerability',
+        risk: 'High Vulnerability Spike',
+        color: '#fbbf24',
+        icon: '⚡',
+        tip: 'Natural circadian dip in core temperature & dopamine. Brain seeks instant gratification. Use Focus Shield.',
+      };
+    }
+    if (h >= 18 && h < 22) {
+      return {
+        period: 'Twilight Leisure & Social',
+        risk: 'Moderate Risk',
+        color: '#a78bfa',
+        icon: '🌇',
+        tip: 'Conscious wind-down time. Choose books, walks, or real conversations over mindless vertical swipes.',
+      };
+    }
+    return {
+      period: 'Melatonin Guard & Sleep Recovery',
+      risk: 'Critical Disruption Zone',
+      color: '#f87171',
+      icon: '🌙',
+      tip: 'Short-form rapid video suppresses melatonin synthesis by up to 90 min. Keep phone away from bed.',
+    };
+  };
+
+  const selectedHourProfile = getHourDopamineProfile(selectedDopamineHour);
+
+  // Trigger Details & Behavioral Hacks
+  const TRIGGER_DATA: Record<TriggerType, { label: string; icon: string; advice: string }> = {
+    boredom: {
+      label: 'Boredom',
+      icon: '🥱',
+      advice: 'Boredom is the brain seeking stimulation. Channel it into a 2-minute physical stretch or hydration.',
+    },
+    stress: {
+      label: 'Stress & Anxiety',
+      icon: '😓',
+      advice: 'Doomscrolling adds cognitive cortisol. Use the 4-4-4 Box Breathing reset to down-regulate your nervous system.',
+    },
+    procrastination: {
+      label: 'Procrastination',
+      icon: '⏳',
+      advice: 'Try the 2-Minute Rule: commit to doing just 120 seconds of your pending task. Starting breaks the freeze.',
+    },
+    habit: {
+      label: 'Muscle Memory',
+      icon: '🔁',
+      advice: 'Your thumb unlocked out of reflex. The Mindful Floating HUD is here to make the invisible visible.',
+    },
+    fomo: {
+      label: 'FOMO',
+      icon: '👥',
+      advice: 'Algorithms manufacture synthetic urgency. Nothing happening on social media warrants losing your focus today.',
+    },
+  };
+
+  const handleLogTrigger = (t: TriggerType) => {
+    setTriggersLog(prev => ({ ...prev, [t]: prev[t] + 1 }));
+    setSelectedTrigger(t);
+    setZenXp(prev => prev + 10);
+    Alert.alert(
+      `${TRIGGER_DATA[t].icon} Impulse Acknowledged (+10 XP)`,
+      TRIGGER_DATA[t].advice,
+    );
+  };
+
 
   // Digital Wellbeing Vitality Score (0-100)
   const calculateVitalityScore = () => {
@@ -593,6 +771,7 @@ function App() {
     { id: 'forest' as FocusSoundscape, name: 'Pine Forest', icon: '🌲', desc: 'Wind through trees' },
     { id: 'waves' as FocusSoundscape, name: 'Ocean Waves', icon: '🌊', desc: 'Rhythmic surf' },
     { id: 'cafe' as FocusSoundscape, name: 'Quiet Library', icon: '☕', desc: 'Soft ambient hum' },
+    { id: 'cosmic' as FocusSoundscape, name: 'Cosmic Binaural', icon: '🌌', desc: '432Hz deep focus' },
   ];
 
   const moodsList = [
@@ -875,6 +1054,84 @@ function App() {
         </View>
       </View>
 
+      {/* Attention Mastery & Zen XP Card */}
+      <View style={styles.masteryCard}>
+        <View style={styles.masteryTopRow}>
+          <View style={styles.masteryBadgeRow}>
+            <Text style={styles.masteryLevelIcon}>{zenLevel.icon}</Text>
+            <View>
+              <Text style={styles.masteryEyebrow}>ATTENTION MASTERY · LEVEL {zenLevel.level}</Text>
+              <Text style={styles.masteryTitle}>{zenLevel.title}</Text>
+            </View>
+          </View>
+          <View style={styles.masteryXpPill}>
+            <Text style={styles.masteryXpText}>{zenXp} XP</Text>
+          </View>
+        </View>
+
+        {/* Progress Bar */}
+        <View style={styles.masteryProgressTrack}>
+          <View style={[styles.masteryProgressFill, { width: `${xpPercent}%` }]} />
+        </View>
+        <View style={styles.masteryProgressLabels}>
+          <Text style={styles.masteryProgressSub}>
+            {xpInCurrentLevel} / {xpNeededForLevel} XP in tier ({xpPercent}%)
+          </Text>
+          <Text style={styles.masteryProgressNext}>Next: Lvl {Math.min(5, zenLevel.level + 1)}</Text>
+        </View>
+
+        {/* Daily Mindful Quests */}
+        <Text style={styles.questsHeader}>DAILY MINDFUL QUESTS</Text>
+        <View style={styles.questsGrid}>
+          <Pressable
+            onPress={() => {
+              if (!dailyQuestsClaimed.compass) {
+                setDailyQuestsClaimed(prev => ({ ...prev, compass: true }));
+                setZenXp(prev => prev + 20);
+                Alert.alert('Quest Complete! 🎯', '+20 XP added for setting your daily intention compass.');
+              }
+            }}
+            style={[styles.questItem, dailyQuestsClaimed.compass && styles.questItemDone]}
+          >
+            <Text style={styles.questIcon}>{dailyQuestsClaimed.compass ? '✓' : '🎯'}</Text>
+            <View style={styles.questInfo}>
+              <Text style={styles.questTitle}>Daily Compass</Text>
+              <Text style={styles.questReward}>+20 XP · Intent Set</Text>
+            </View>
+          </Pressable>
+
+          <Pressable
+            onPress={() => openCravingModal('stroop')}
+            style={[styles.questItem, dailyQuestsClaimed.reset && styles.questItemDone]}
+          >
+            <Text style={styles.questIcon}>{dailyQuestsClaimed.reset ? '✓' : '🧠'}</Text>
+            <View style={styles.questInfo}>
+              <Text style={styles.questTitle}>Stroop Reset</Text>
+              <Text style={styles.questReward}>+40 XP · Tap to Play</Text>
+            </View>
+          </Pressable>
+
+          <Pressable
+            onPress={handleQuickFocus15m}
+            style={[styles.questItem, (focusTimerRunning || dailyQuestsClaimed.shield) && styles.questItemDone]}
+          >
+            <Text style={styles.questIcon}>{focusTimerRunning || dailyQuestsClaimed.shield ? '✓' : '🛡️'}</Text>
+            <View style={styles.questInfo}>
+              <Text style={styles.questTitle}>Focus Shield</Text>
+              <Text style={styles.questReward}>+50 XP · 15m Sprint</Text>
+            </View>
+          </Pressable>
+
+          <View style={[styles.questItem, totalShorts <= dailyLimit && styles.questItemDone]}>
+            <Text style={styles.questIcon}>{totalShorts <= dailyLimit ? '✓' : '📉'}</Text>
+            <View style={styles.questInfo}>
+              <Text style={styles.questTitle}>Stay Under Cap</Text>
+              <Text style={styles.questReward}>+100 XP · At Midnight</Text>
+            </View>
+          </View>
+        </View>
+      </View>
+
       {/* Hero Counter Card */}
       <View style={[styles.heroCard, isOverLimit && styles.heroCardOverLimit]}>
         <View style={styles.heroTopRow}>
@@ -1088,6 +1345,135 @@ function App() {
           </View>
         </View>
         <Text style={styles.chronoAdviceText}>{chronoShield.advice}</Text>
+      </View>
+
+
+      {/* Mindful Intercept Gate - Neural Circuit Breaker */}
+      <View style={styles.interceptCard}>
+        <View style={styles.interceptTopRow}>
+          <Text style={styles.interceptEmoji}>🧠</Text>
+          <View style={styles.interceptTitleCol}>
+            <Text style={styles.interceptEyebrow}>NEURAL CIRCUIT BREAKER</Text>
+            <Text style={styles.interceptTitle}>Mindful Intercept Gate</Text>
+          </View>
+        </View>
+        <Text style={styles.interceptDesc}>
+          Compulsive scrolling is driven by autonomic basal-ganglia reflex. Engaging prefrontal color-word conflict breaks the dopamine urge.
+        </Text>
+        <Pressable
+          onPress={() => {
+            resetStroop();
+            openCravingModal('stroop');
+          }}
+          style={styles.interceptActionBtn}
+        >
+          <Text style={styles.interceptActionBtnText}>⚡ Challenge Urge with Stroop Test (+40 XP) →</Text>
+        </Pressable>
+      </View>
+
+      {/* 24-Hour Dopamine Matrix & Attention Clock */}
+      <View style={styles.sectionCard}>
+        <View style={styles.clockHeaderRow}>
+          <View>
+            <Text style={styles.cardSectionEyebrow}>CIRCADIAN DOPAMINE MATRIX</Text>
+            <Text style={styles.cardSectionTitle}>24-Hour Attention Clock</Text>
+          </View>
+          <View style={styles.liveNowPill}>
+            <View style={styles.liveNowDot} />
+            <Text style={styles.liveNowText}>Hour {new Date().getHours()}:00</Text>
+          </View>
+        </View>
+
+        {/* 24-Hour Scrollable Hourly Bar Dial */}
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.hourlyBarRow}>
+          {Array.from({ length: 24 }).map((_, h) => {
+            const prof = getHourDopamineProfile(h);
+            const isSelected = selectedDopamineHour === h;
+            const isCurrent = new Date().getHours() === h;
+
+            return (
+              <Pressable
+                key={h}
+                onPress={() => setSelectedDopamineHour(h)}
+                style={[
+                  styles.hourlyBarItem,
+                  isSelected && styles.hourlyBarItemSelected,
+                  isCurrent && styles.hourlyBarItemCurrent,
+                ]}
+              >
+                <Text style={[styles.hourlyBarHourText, isSelected && styles.hourlyBarTextActive]}>
+                  {h.toString().padStart(2, '0')}
+                </Text>
+                <View style={[styles.hourlyBarIndicator, { backgroundColor: prof.color }]} />
+                <Text style={styles.hourlyBarEmoji}>{prof.icon}</Text>
+              </Pressable>
+            );
+          })}
+        </ScrollView>
+
+        {/* Selected Hour Insight Card */}
+        <View style={[styles.hourInsightBox, { borderColor: selectedHourProfile.color }]}>
+          <View style={styles.hourInsightHeader}>
+            <Text style={styles.hourInsightIcon}>{selectedHourProfile.icon}</Text>
+            <View style={styles.hourInsightTitleCol}>
+              <Text style={styles.hourInsightTimeRange}>
+                {selectedDopamineHour.toString().padStart(2, '0')}:00 –{' '}
+                {((selectedDopamineHour + 1) % 24).toString().padStart(2, '0')}:00
+              </Text>
+              <Text style={[styles.hourInsightRisk, { color: selectedHourProfile.color }]}>
+                {selectedHourProfile.risk}
+              </Text>
+            </View>
+          </View>
+          <Text style={styles.hourInsightPeriodTitle}>{selectedHourProfile.period}</Text>
+          <Text style={styles.hourInsightTip}>{selectedHourProfile.tip}</Text>
+        </View>
+      </View>
+
+      {/* Impulse & Trigger Awareness Journal */}
+      <View style={styles.sectionCard}>
+        <View style={styles.triggerHeaderRow}>
+          <View>
+            <Text style={styles.cardSectionEyebrow}>SELF-AWARENESS TRACKER</Text>
+            <Text style={styles.cardSectionTitle}>Why did you reach for feeds?</Text>
+          </View>
+          <Text style={styles.triggerXpHint}>+10 XP / log</Text>
+        </View>
+        <Text style={styles.triggerSubText}>
+          Logging the emotion behind the impulse disarms unconscious muscle memory.
+        </Text>
+
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.triggerPillsRow}>
+          {(Object.keys(TRIGGER_DATA) as TriggerType[]).map(t => {
+            const data = TRIGGER_DATA[t];
+            const isSelected = selectedTrigger === t;
+            const count = triggersLog[t] || 0;
+
+            return (
+              <Pressable
+                key={t}
+                onPress={() => handleLogTrigger(t)}
+                style={[styles.triggerPill, isSelected && styles.triggerPillSelected]}
+              >
+                <Text style={styles.triggerPillIcon}>{data.icon}</Text>
+                <Text style={[styles.triggerPillLabel, isSelected && styles.triggerPillLabelSelected]}>
+                  {data.label}
+                </Text>
+                <View style={styles.triggerCountBadge}>
+                  <Text style={styles.triggerCountBadgeText}>{count}</Text>
+                </View>
+              </Pressable>
+            );
+          })}
+        </ScrollView>
+
+        {/* Dynamic Behavioral Hack for Selected Trigger */}
+        <View style={styles.triggerAdviceCard}>
+          <Text style={styles.triggerAdviceEyebrow}>
+            {TRIGGER_DATA[selectedTrigger].icon} NEURO-REPLACEMENT PROTOCOL
+          </Text>
+          <Text style={styles.triggerAdviceBody}>{TRIGGER_DATA[selectedTrigger].advice}</Text>
+        </View>
       </View>
 
       {/* 7-Day Activity History Bar Chart */}
@@ -1917,10 +2303,42 @@ function App() {
             <View style={[styles.eqBar, styles.eqBar3]} />
             <View style={[styles.eqBar, styles.eqBar4]} />
             <Text style={styles.eqLabel}>
-              Playing {soundscapesList.find(s => s.id === soundscape)?.name} ambience
+              Playing {soundscapesList.find(s => s.id === soundscape)?.name} ({soundscapeDurationMins}m session)
             </Text>
           </View>
         )}
+
+        {/* Soundscape Duration & Play Controls */}
+        <View style={styles.soundscapeDurationRow}>
+          <Text style={styles.soundscapeDurationLabel}>Duration:</Text>
+          {[15, 25, 45, 60].map(mins => (
+            <Pressable
+              key={mins}
+              onPress={() => setSoundscapeDurationMins(mins)}
+              style={[
+                styles.soundscapeDurationBtn,
+                soundscapeDurationMins === mins && styles.soundscapeDurationBtnActive,
+              ]}
+            >
+              <Text
+                style={[
+                  styles.soundscapeDurationBtnText,
+                  soundscapeDurationMins === mins && styles.soundscapeDurationBtnTextActive,
+                ]}
+              >
+                {mins}m
+              </Text>
+            </Pressable>
+          ))}
+          <Pressable
+            onPress={() => setSoundscapePlaying(!soundscapePlaying)}
+            style={styles.soundscapePlayToggleBtn}
+          >
+            <Text style={styles.soundscapePlayToggleText}>
+              {soundscapePlaying ? '⏸ Pause' : '▶ Play'}
+            </Text>
+          </Pressable>
+        </View>
       </View>
     </ScrollView>
   );
@@ -2045,7 +2463,7 @@ function App() {
           Personalize your visual accent illumination across dashboard rings and widgets.
         </Text>
         <View style={styles.themePaletteRow}>
-          {(['emerald', 'cyan', 'amethyst', 'amber'] as ThemeAccent[]).map(accentKey => {
+          {(['emerald', 'cyan', 'amethyst', 'amber', 'monochrome'] as ThemeAccent[]).map(accentKey => {
             const t = themeColors[accentKey];
             const isSelected = themeAccent === accentKey;
             return (
@@ -2227,7 +2645,7 @@ function App() {
                 Break the dopamine compulsion loop with an evidence-based mindful pause.
               </Text>
 
-              {/* 3-Mode Switcher */}
+              {/* 4-Mode Switcher */}
               <View style={styles.modalTabRow}>
                 <Pressable
                   onPress={() => setCravingTab('breathing')}
@@ -2242,7 +2660,7 @@ function App() {
                       cravingTab === 'breathing' && styles.modalTabBtnTextActive,
                     ]}
                   >
-                    🧘 4-4-4 Breath
+                    🧘 Breath
                   </Text>
                 </Pressable>
                 <Pressable
@@ -2275,6 +2693,25 @@ function App() {
                     ]}
                   >
                     🌿 Grounding
+                  </Text>
+                </Pressable>
+                <Pressable
+                  onPress={() => {
+                    resetStroop();
+                    setCravingTab('stroop');
+                  }}
+                  style={[
+                    styles.modalTabBtn,
+                    cravingTab === 'stroop' && styles.modalTabBtnActive,
+                  ]}
+                >
+                  <Text
+                    style={[
+                      styles.modalTabBtnText,
+                      cravingTab === 'stroop' && styles.modalTabBtnTextActive,
+                    ]}
+                  >
+                    🧠 Stroop
                   </Text>
                 </Pressable>
               </View>
@@ -2381,6 +2818,88 @@ function App() {
                 </View>
               )}
 
+              {/* Mode 4: Stroop Cognitive Conflict Test */}
+              {cravingTab === 'stroop' && (
+                <View style={styles.stroopContainer}>
+                  {!stroopFinished ? (
+                    <>
+                      <Text style={styles.stroopRoundEyebrow}>
+                        CHALLENGE {stroopRound + 1} OF 3
+                      </Text>
+                      <Text style={styles.stroopInstruction}>
+                        Tap the <Text style={styles.stroopHighlight}>INK COLOR</Text> of the word below (ignore the letters):
+                      </Text>
+
+                      {/* Conflict Word Card */}
+                      <View style={styles.stroopWordCard}>
+                        <Text
+                          style={[
+                            styles.stroopWordText,
+                            { color: STROOP_TRIALS[stroopRound % STROOP_TRIALS.length].color },
+                          ]}
+                        >
+                          {STROOP_TRIALS[stroopRound % STROOP_TRIALS.length].text}
+                        </Text>
+                      </View>
+
+                      {stroopFeedback && (
+                        <Text style={styles.stroopFeedbackText}>{stroopFeedback}</Text>
+                      )}
+
+                      {/* 4 Ink Color Buttons */}
+                      <View style={styles.stroopButtonsGrid}>
+                        {['Emerald', 'Cyan', 'Amethyst', 'Amber'].map(cName => {
+                          const colorMap: Record<string, string> = {
+                            Emerald: '#38d39f',
+                            Cyan: '#22d3ee',
+                            Amethyst: '#c084fc',
+                            Amber: '#fbbf24',
+                          };
+                          return (
+                            <Pressable
+                              key={cName}
+                              onPress={() => handleStroopAnswer(cName)}
+                              style={[
+                                styles.stroopChoiceBtn,
+                                { borderColor: colorMap[cName] },
+                              ]}
+                            >
+                              <View
+                                style={[
+                                  styles.stroopColorSwatch,
+                                  { backgroundColor: colorMap[cName] },
+                                ]}
+                              />
+                              <Text style={styles.stroopChoiceText}>{cName}</Text>
+                            </Pressable>
+                          );
+                        })}
+                      </View>
+                    </>
+                  ) : (
+                    <View style={styles.stroopSuccessCard}>
+                      <Text style={styles.stroopSuccessIcon}>🧠✨</Text>
+                      <Text style={styles.stroopSuccessTitle}>Prefrontal Cortex Restored!</Text>
+                      <Text style={styles.stroopSuccessDesc}>
+                        The color-word conflict forced your executive brain to override the basal-ganglia autonomic dopamine loop.
+                      </Text>
+                      <View style={styles.stroopXpBadge}>
+                        <Text style={styles.stroopXpBadgeText}>+40 Zen XP Earned</Text>
+                      </View>
+                      <Pressable
+                        onPress={() => {
+                          resetStroop();
+                          setShowCravingModal(false);
+                        }}
+                        style={styles.stroopCompleteBtn}
+                      >
+                        <Text style={styles.stroopCompleteBtnText}>Conscious Awareness Restored ✓</Text>
+                      </Pressable>
+                    </View>
+                  )}
+                </View>
+              )}
+
               <Pressable
                 onPress={() => {
                   setShowCravingModal(false);
@@ -2401,6 +2920,548 @@ function App() {
 }
 
 const styles = StyleSheet.create({
+
+  soundscapeDurationRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginTop: 12,
+  },
+  soundscapeDurationLabel: {
+    color: '#8aa395',
+    fontSize: 11,
+    fontWeight: '700',
+    marginRight: 2,
+  },
+  soundscapeDurationBtn: {
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 8,
+    backgroundColor: '#111d17',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.08)',
+  },
+  soundscapeDurationBtnActive: {
+    borderColor: '#38d39f',
+    backgroundColor: '#15281f',
+  },
+  soundscapeDurationBtnText: {
+    color: '#8aa395',
+    fontSize: 11,
+    fontWeight: '700',
+  },
+  soundscapeDurationBtnTextActive: {
+    color: '#38d39f',
+    fontWeight: '800',
+  },
+  soundscapePlayToggleBtn: {
+    marginLeft: 'auto',
+    backgroundColor: 'rgba(56, 211, 159, 0.15)',
+    paddingHorizontal: 12,
+    paddingVertical: 5,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#38d39f',
+  },
+  soundscapePlayToggleText: {
+    color: '#38d39f',
+    fontSize: 11,
+    fontWeight: '800',
+  },
+
+
+  // Attention Mastery & XP Styles
+  masteryCard: {
+    backgroundColor: '#0c1511',
+    borderRadius: 20,
+    padding: 18,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: 'rgba(56, 211, 159, 0.3)',
+  },
+  masteryTopRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 12,
+  },
+  masteryBadgeRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  masteryLevelIcon: {
+    fontSize: 28,
+    marginRight: 10,
+  },
+  masteryEyebrow: {
+    color: '#38d39f',
+    fontSize: 10,
+    fontWeight: '800',
+    letterSpacing: 1.2,
+  },
+  masteryTitle: {
+    color: '#f1f5f3',
+    fontSize: 18,
+    fontWeight: '800',
+    marginTop: 2,
+  },
+  masteryXpPill: {
+    backgroundColor: 'rgba(56, 211, 159, 0.15)',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#38d39f',
+  },
+  masteryXpText: {
+    color: '#38d39f',
+    fontSize: 14,
+    fontWeight: '900',
+  },
+  masteryProgressTrack: {
+    height: 8,
+    backgroundColor: '#1b2821',
+    borderRadius: 4,
+    overflow: 'hidden',
+    marginBottom: 6,
+  },
+  masteryProgressFill: {
+    height: '100%',
+    backgroundColor: '#38d39f',
+    borderRadius: 4,
+  },
+  masteryProgressLabels: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 14,
+  },
+  masteryProgressSub: {
+    color: '#8aa395',
+    fontSize: 11,
+    fontWeight: '600',
+  },
+  masteryProgressNext: {
+    color: '#38d39f',
+    fontSize: 11,
+    fontWeight: '700',
+  },
+  questsHeader: {
+    color: '#657e71',
+    fontSize: 10,
+    fontWeight: '800',
+    letterSpacing: 1.2,
+    marginBottom: 8,
+  },
+  questsGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  questItem: {
+    width: '48%',
+    backgroundColor: '#111d17',
+    borderRadius: 12,
+    padding: 10,
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.05)',
+  },
+  questItemDone: {
+    borderColor: 'rgba(56, 211, 159, 0.4)',
+    backgroundColor: '#102219',
+  },
+  questIcon: {
+    fontSize: 16,
+    color: '#38d39f',
+    marginRight: 8,
+    fontWeight: '900',
+  },
+  questInfo: {
+    flex: 1,
+  },
+  questTitle: {
+    color: '#e2e8e5',
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  questReward: {
+    color: '#8aa395',
+    fontSize: 10,
+    fontWeight: '600',
+    marginTop: 1,
+  },
+
+  // Intercept Card Styles
+  interceptCard: {
+    backgroundColor: '#111728',
+    borderRadius: 20,
+    padding: 18,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: 'rgba(99, 102, 241, 0.35)',
+  },
+  interceptTopRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  interceptEmoji: {
+    fontSize: 26,
+    marginRight: 10,
+  },
+  interceptTitleCol: {
+    flex: 1,
+  },
+  interceptEyebrow: {
+    color: '#818cf8',
+    fontSize: 10,
+    fontWeight: '800',
+    letterSpacing: 1.2,
+  },
+  interceptTitle: {
+    color: '#f8fafc',
+    fontSize: 17,
+    fontWeight: '800',
+    marginTop: 2,
+  },
+  interceptDesc: {
+    color: '#94a3b8',
+    fontSize: 12,
+    lineHeight: 17,
+    marginBottom: 14,
+  },
+  interceptActionBtn: {
+    backgroundColor: '#4f46e5',
+    borderRadius: 12,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    alignItems: 'center',
+  },
+  interceptActionBtnText: {
+    color: '#ffffff',
+    fontSize: 13,
+    fontWeight: '800',
+  },
+
+  // 24-Hour Dopamine Clock Styles
+  clockHeaderRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    marginBottom: 12,
+  },
+  cardSectionEyebrow: {
+    color: '#38d39f',
+    fontSize: 10,
+    fontWeight: '800',
+    letterSpacing: 1.2,
+    marginBottom: 2,
+  },
+  liveNowPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#111d17',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: 'rgba(56, 211, 159, 0.4)',
+  },
+  liveNowDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: '#38d39f',
+    marginRight: 6,
+  },
+  liveNowText: {
+    color: '#38d39f',
+    fontSize: 10,
+    fontWeight: '700',
+  },
+  hourlyBarRow: {
+    flexDirection: 'row',
+    gap: 6,
+    paddingBottom: 12,
+  },
+  hourlyBarItem: {
+    alignItems: 'center',
+    paddingVertical: 8,
+    paddingHorizontal: 10,
+    backgroundColor: '#111d17',
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.05)',
+    minWidth: 44,
+  },
+  hourlyBarItemSelected: {
+    borderColor: '#38d39f',
+    backgroundColor: '#15251e',
+  },
+  hourlyBarItemCurrent: {
+    borderWidth: 2,
+  },
+  hourlyBarHourText: {
+    color: '#657e71',
+    fontSize: 11,
+    fontWeight: '700',
+    marginBottom: 4,
+  },
+  hourlyBarTextActive: {
+    color: '#f1f5f3',
+  },
+  hourlyBarIndicator: {
+    width: 14,
+    height: 4,
+    borderRadius: 2,
+    marginBottom: 4,
+  },
+  hourlyBarEmoji: {
+    fontSize: 12,
+  },
+  hourInsightBox: {
+    backgroundColor: '#0c1511',
+    borderRadius: 14,
+    padding: 14,
+    borderWidth: 1,
+    marginTop: 4,
+  },
+  hourInsightHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 6,
+  },
+  hourInsightIcon: {
+    fontSize: 20,
+    marginRight: 8,
+  },
+  hourInsightTitleCol: {
+    flex: 1,
+  },
+  hourInsightTimeRange: {
+    color: '#f1f5f3',
+    fontSize: 13,
+    fontWeight: '800',
+  },
+  hourInsightRisk: {
+    fontSize: 11,
+    fontWeight: '700',
+  },
+  hourInsightPeriodTitle: {
+    color: '#d1fae5',
+    fontSize: 14,
+    fontWeight: '700',
+    marginBottom: 4,
+  },
+  hourInsightTip: {
+    color: '#8aa395',
+    fontSize: 12,
+    lineHeight: 17,
+  },
+
+  // Impulse Awareness Journal Styles
+  triggerHeaderRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    marginBottom: 4,
+  },
+  triggerXpHint: {
+    color: '#38d39f',
+    fontSize: 11,
+    fontWeight: '800',
+  },
+  triggerSubText: {
+    color: '#8aa395',
+    fontSize: 12,
+    lineHeight: 16,
+    marginBottom: 12,
+  },
+  triggerPillsRow: {
+    flexDirection: 'row',
+    gap: 8,
+    paddingBottom: 12,
+  },
+  triggerPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#111d17',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.08)',
+  },
+  triggerPillSelected: {
+    borderColor: '#38d39f',
+    backgroundColor: '#15281f',
+  },
+  triggerPillIcon: {
+    fontSize: 15,
+    marginRight: 6,
+  },
+  triggerPillLabel: {
+    color: '#8aa395',
+    fontSize: 12,
+    fontWeight: '700',
+    marginRight: 6,
+  },
+  triggerPillLabelSelected: {
+    color: '#f1f5f3',
+  },
+  triggerCountBadge: {
+    backgroundColor: 'rgba(255, 255, 255, 0.08)',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 6,
+  },
+  triggerCountBadgeText: {
+    color: '#657e71',
+    fontSize: 10,
+    fontWeight: '800',
+  },
+  triggerAdviceCard: {
+    backgroundColor: '#0c1511',
+    borderRadius: 12,
+    padding: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(56, 211, 159, 0.25)',
+  },
+  triggerAdviceEyebrow: {
+    color: '#38d39f',
+    fontSize: 10,
+    fontWeight: '800',
+    letterSpacing: 1.1,
+    marginBottom: 4,
+  },
+  triggerAdviceBody: {
+    color: '#d1fae5',
+    fontSize: 12,
+    lineHeight: 17,
+    fontWeight: '500',
+  },
+
+  // Stroop Modal Game Styles
+  stroopContainer: {
+    width: '100%',
+    alignItems: 'center',
+    marginVertical: 12,
+  },
+  stroopRoundEyebrow: {
+    color: '#818cf8',
+    fontSize: 11,
+    fontWeight: '800',
+    letterSpacing: 1.5,
+    marginBottom: 4,
+  },
+  stroopInstruction: {
+    color: '#8aa395',
+    fontSize: 13,
+    textAlign: 'center',
+    marginBottom: 16,
+  },
+  stroopHighlight: {
+    color: '#22d3ee',
+    fontWeight: '900',
+  },
+  stroopWordCard: {
+    width: '100%',
+    backgroundColor: '#090e0c',
+    borderRadius: 18,
+    paddingVertical: 24,
+    alignItems: 'center',
+    borderWidth: 2,
+    borderColor: 'rgba(255, 255, 255, 0.1)',
+    marginBottom: 14,
+  },
+  stroopWordText: {
+    fontSize: 40,
+    fontWeight: '900',
+    letterSpacing: 4,
+  },
+  stroopFeedbackText: {
+    color: '#22d3ee',
+    fontSize: 12,
+    fontWeight: '700',
+    marginBottom: 12,
+    textAlign: 'center',
+  },
+  stroopButtonsGrid: {
+    width: '100%',
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 10,
+    justifyContent: 'space-between',
+  },
+  stroopChoiceBtn: {
+    width: '48%',
+    backgroundColor: '#111d17',
+    borderRadius: 14,
+    paddingVertical: 14,
+    paddingHorizontal: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderWidth: 1.5,
+  },
+  stroopColorSwatch: {
+    width: 14,
+    height: 14,
+    borderRadius: 7,
+    marginRight: 8,
+  },
+  stroopChoiceText: {
+    color: '#f1f5f3',
+    fontSize: 13,
+    fontWeight: '800',
+  },
+  stroopSuccessCard: {
+    alignItems: 'center',
+    paddingVertical: 12,
+  },
+  stroopSuccessIcon: {
+    fontSize: 48,
+    marginBottom: 10,
+  },
+  stroopSuccessTitle: {
+    color: '#f1f5f3',
+    fontSize: 19,
+    fontWeight: '900',
+    marginBottom: 6,
+  },
+  stroopSuccessDesc: {
+    color: '#8aa395',
+    fontSize: 13,
+    textAlign: 'center',
+    lineHeight: 18,
+    marginBottom: 14,
+  },
+  stroopXpBadge: {
+    backgroundColor: 'rgba(56, 211, 159, 0.2)',
+    paddingHorizontal: 14,
+    paddingVertical: 6,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#38d39f',
+    marginBottom: 16,
+  },
+  stroopXpBadgeText: {
+    color: '#38d39f',
+    fontSize: 13,
+    fontWeight: '900',
+  },
+  stroopCompleteBtn: {
+    backgroundColor: '#10b981',
+    borderRadius: 14,
+    paddingVertical: 12,
+    paddingHorizontal: 20,
+  },
+  stroopCompleteBtnText: {
+    color: '#ffffff',
+    fontSize: 13,
+    fontWeight: '800',
+  },
+
   safeArea: { flex: 1, backgroundColor: '#090e0c' },
   mainContainer: { flex: 1, backgroundColor: '#090e0c' },
   content: { paddingHorizontal: 16, paddingTop: 14, paddingBottom: 95 },
