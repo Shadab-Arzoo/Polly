@@ -69,11 +69,27 @@ function App() {
 
           <View style={styles.statusSection} accessibilityLiveRegion="polite">
             <Text style={styles.sectionTitle}>Prototype status</Text>
-            <Text style={styles.body}>
-              {prototypeStatus.serviceConnected
-                ? 'Accessibility service connected'
-                : 'Accessibility service not active'}
-            </Text>
+            <View
+              style={[
+                styles.statusBadge,
+                prototypeStatus.serviceConnected
+                  ? styles.statusBadgeActive
+                  : styles.statusBadgeInactive,
+              ]}
+            >
+              <Text
+                style={[
+                  styles.statusBadgeText,
+                  prototypeStatus.serviceConnected
+                    ? styles.statusBadgeTextActive
+                    : styles.statusBadgeTextInactive,
+                ]}
+              >
+                {prototypeStatus.serviceConnected
+                  ? '● Accessibility service connected'
+                  : '○ Accessibility service not active'}
+              </Text>
+            </View>
             <Text style={styles.body}>
               Candidate transitions this service session: {prototypeStatus.candidateCount}
             </Text>
@@ -85,6 +101,27 @@ function App() {
               experimental and are not reliable reel counts.
             </Text>
           </View>
+
+          {prototypeStatus.serviceConnected ? (
+            <View style={styles.guideBox}>
+              <Text style={styles.guideTitle}>Service Active · Ready to Test</Text>
+              <Text style={styles.guideBody}>
+                ReelCount is observing scrolling events in the background. To test detection:
+              </Text>
+              <Text style={styles.guideStep}>
+                1. Switch to Instagram, TikTok, YouTube, or Snapchat.
+              </Text>
+              <Text style={styles.guideStep}>
+                2. Scroll through short-form videos (Reels/Shorts).
+              </Text>
+              <Text style={styles.guideStep}>
+                3. Switch back here to see candidate transitions update in real time.
+              </Text>
+              <Text style={styles.guideNote}>
+                Note: This feasibility milestone is an event-only prototype. Full dashboard navigation will be added in upcoming roadmap phases.
+              </Text>
+            </View>
+          ) : null}
 
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>
@@ -142,7 +179,9 @@ function App() {
             style={[styles.button, !consentGiven && styles.buttonDisabled]}
           >
             <Text style={styles.buttonText}>
-              Continue to accessibility settings
+              {prototypeStatus.serviceConnected
+                ? 'Manage accessibility settings'
+                : 'Continue to accessibility settings'}
             </Text>
           </Pressable>
           <Text style={styles.settingsHint}>
@@ -185,6 +224,66 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     marginTop: 24,
     padding: 16,
+  },
+  statusBadge: {
+    alignSelf: 'flex-start',
+    borderRadius: 4,
+    marginTop: 10,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+  },
+  statusBadgeActive: {
+    backgroundColor: '#1b3d2f',
+    borderColor: '#34c759',
+    borderWidth: 1,
+  },
+  statusBadgeInactive: {
+    backgroundColor: '#353b38',
+    borderColor: '#7a8880',
+    borderWidth: 1,
+  },
+  statusBadgeText: {
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  statusBadgeTextActive: {
+    color: '#4cd964',
+  },
+  statusBadgeTextInactive: {
+    color: '#d0dbd3',
+  },
+  guideBox: {
+    backgroundColor: '#1b3228',
+    borderColor: '#2e5944',
+    borderRadius: 6,
+    borderWidth: 1,
+    marginTop: 20,
+    padding: 16,
+  },
+  guideTitle: {
+    color: '#7be495',
+    fontSize: 16,
+    fontWeight: '700',
+  },
+  guideBody: {
+    color: '#d0dbd3',
+    fontSize: 14,
+    lineHeight: 20,
+    marginTop: 8,
+  },
+  guideStep: {
+    color: '#f2f5ef',
+    fontSize: 14,
+    lineHeight: 20,
+    marginTop: 6,
+    paddingLeft: 6,
+  },
+  guideNote: {
+    color: '#9fbeaa',
+    fontSize: 12,
+    fontStyle: 'italic',
+    lineHeight: 18,
+    marginTop: 12,
   },
   section: {
     borderTopColor: '#40534a',
