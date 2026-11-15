@@ -14,7 +14,25 @@ jest.mock('../src/native/PrototypeSettings', () => ({
       serviceConnected: true,
       candidateCount: 2,
       bufferedEventCount: 4,
+      instagramCount: 1,
+      tiktokCount: 1,
+      youtubeCount: 0,
+      snapchatCount: 0,
+      dailyShortLimit: 50,
+      focusModeActive: false,
     }),
+    getDailyHistory: jest.fn().mockResolvedValue([
+      { date: '2026-11-15', label: 'Today', count: 2 },
+    ]),
+    setFocusMode: jest.fn().mockResolvedValue(true),
+    setDailyLimits: jest.fn().mockResolvedValue(true),
+    resetCounters: jest.fn().mockResolvedValue(null),
+  },
+  TARGET_PACKAGES: {
+    INSTAGRAM: 'com.instagram.android',
+    TIKTOK: 'com.zhiliaoapp.musically',
+    YOUTUBE: 'com.google.android.youtube',
+    SNAPCHAT: 'com.snapchat.android',
   },
 }));
 jest.mock('react-native-safe-area-context', () => {

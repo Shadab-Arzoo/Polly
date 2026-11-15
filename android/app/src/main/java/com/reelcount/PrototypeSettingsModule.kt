@@ -11,32 +11,91 @@ import com.facebook.react.bridge.Promise
 import com.facebook.react.bridge.ReactApplicationContext
 import com.facebook.react.bridge.ReactContextBaseJavaModule
 import com.facebook.react.bridge.ReactMethod
+import com.facebook.react.bridge.ReadableArray
 import com.reelcount.tracking.PrototypeRuntimeStatus
 import com.reelcount.tracking.ReelCountAccessibilityService
+import com.reelcount.tracking.ReelCountPreferences
 import com.reelcount.tracking.TargetPackages
 
 class PrototypeSettingsModule(context: ReactApplicationContext) : ReactContextBaseJavaModule(context) {
   override fun getName() = "PrototypeSettings"
 
+  private val prefs: ReelCountPreferences by lazy {
+    ReelCountPreferences.getInstance(reactApplicationContext)
+  }
+
   @ReactMethod
   fun getPrototypeStatus(promise: Promise) {
-    val status = PrototypeRuntimeStatus.snapshot()
+    val status = PrototypeRuntimeStatus.snapshot(prefs)
     val isConnected = status.serviceConnected || isAccessibilityServiceEnabled()
+    val isFocusActive = prefs.isFocusModeActive()
+    val focusRemainingSec = prefs.getFocusRemainingSeconds()
+
     val result = Arguments.createMap().apply {
       putBoolean("serviceConnected", isConnected)
       putInt("candidateCount", status.candidateCount)
       putInt("bufferedEventCount", status.bufferedEventCount)
-      putInt("instagramCount", status.packageCounts[TargetPackages.INSTAGRAM] ?: 0)
-      putInt("tiktokCount", status.packageCounts[TargetPackages.TIKTOK] ?: 0)
-      putInt("youtubeCount", status.packageCounts[TargetPackages.YOUTUBE] ?: 0)
-      putInt("snapchatCount", status.packageCounts[TargetPackages.SNAPCHAT] ?: 0)
+      putInt("instagramCount", prefs.getTodayPackageCount(TargetPackages.INSTAGRAM))
+      putInt("tiktokCount", prefs.getTodayPackageCount(TargetPackages.TIKTOK))
+      putInt("youtubeCount", prefs.getTodayPackageCount(TargetPackages.YOUTUBE))
+      putInt("snapchatCount", prefs.getTodayPackageCount(TargetPackages.SNAPCHAT))
+      putBoolean("focusModeActive", isFocusActive)
+      putInt("focusRemainingSeconds", focusRemainingSec.toInt())
+      putInt("dailyShortLimit", prefs.getDailyShortLimit())
+      putInt("dailyTimeLimitMinutes", prefs.getDailyTimeLimitMinutes())
     }
     promise.resolve(result)
   }
 
   @ReactMethod
+  fun setFocusMode(active: Boolean, durationMinutes: Int, blockedPackages: ReadableArray, promise: Promise) {
+    try {
+      val pkgSet = mutableSetOf<String>()
+      for (i in 0 until blockedPackages.size()) {
+        val pkg = blockedPackages.getString(i)
+        if (!pkg.isNullOrEmpty()) {
+          pkgSet.add(pkg)
+        }
+      }
+      prefs.setFocusMode(active, durationMinutes, pkgSet)
+      promise.resolve(true)
+    } catch (e: Exception) {
+      promise.reject("FOCUS_MODE_ERROR", e.message, e)
+    }
+  }
+
+  @ReactMethod
+  fun setDailyLimits(shortLimit: Int, timeLimitMinutes: Int, promise: Promise) {
+    try {
+      prefs.setDailyLimits(shortLimit, timeLimitMinutes)
+      promise.resolve(true)
+    } catch (e: Exception) {
+      promise.reject("LIMIT_ERROR", e.message, e)
+    }
+  }
+
+  @ReactMethod
+  fun getDailyHistory(promise: Promise) {
+    try {
+      val history = prefs.get7DayHistory()
+      val list = Arguments.createArray()
+      for (item in history) {
+        val map = Arguments.createMap().apply {
+          putString("date", item.date)
+          putString("label", item.label)
+          putInt("count", item.count)
+        }
+        list.pushMap(map)
+      }
+      promise.resolve(list)
+    } catch (e: Exception) {
+      promise.reject("HISTORY_ERROR", e.message, e)
+    }
+  }
+
+  @ReactMethod
   fun resetCounters(promise: Promise) {
-    PrototypeRuntimeStatus.reset()
+    PrototypeRuntimeStatus.reset(prefs)
     promise.resolve(null)
   }
 

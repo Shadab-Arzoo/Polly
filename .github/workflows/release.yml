@@ -50,7 +50,7 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          VERSION="v0.1.${{ github.run_number }}"
+          VERSION="v0.2.${{ github.run_number }}"
           APK_FILE="android/app/build/outputs/apk/debug/app-debug.apk"
           RELEASE_APK="ReelCount-${VERSION}.apk"
           cp "$APK_FILE" "$RELEASE_APK"
@@ -61,23 +61,28 @@ jobs:
           cat << 'EOF' > release_notes.md
           ## 📱 ReelCount ${VERSION}
 
-          ### 🚀 What's Updated in This Release:
+          ### 🚀 What's New in This Release:
           - **Change**: ${COMMIT_TITLE}
           - **Commit**: `${{ github.sha }}`
 
           ### ✨ Key Features Included:
-          - **Live Short Counter**: Tracks scrolls on Instagram Reels, TikTok, YouTube Shorts, and Snapchat.
-          - **App-Open Notifications**: Alerts you as soon as you launch a short-video app.
-          - **Floating On-Screen HUD**: Real-time draggable counter overlay that increments on every swipe.
-          - **Daily Limits & Timers**: Set scroll targets and time limits with doomscroll warnings.
-          - **Block & Focus Mode**: 15-minute focus session timer and distraction blocking toggles.
+          - **True Native App Blocking**: Blocks target apps (Instagram, TikTok, YouTube, Snapchat) during Focus Sessions and automatically returns to Home (`GLOBAL_ACTION_HOME`).
+          - **Persistent Counting & 7-Day Bar Chart**: Local device storage saves counts across phone reboots and displays weekly usage trends on the dashboard.
+          - **Daily Limit Alerts & Notifications**: Push notification and red warning badge when your daily short limit is reached.
+          - **Draggable Floating HUD with Position Memory**: Real-time swipe counter remembers where you placed it on the screen.
+          - **Haptic Feedback**: Gentle vibration pulse on every detected short video scroll.
+          - **Custom App Icon**: Fresh emerald film-reel icon across all Android device resolutions.
 
-          ### 📥 Download & Install Instructions:
-          1. Download the attached **`${RELEASE_APK}`** below directly to your Android device.
-          2. Tap the downloaded file to install (grant your browser permission to install APKs if prompted).
-          3. *On Android 13+*: Sideloaded apps have restricted settings by default. If the accessibility toggle is disabled or grayed out:
-             - Open **Settings → Apps → ReelCount → ⋮ (menu) → Allow restricted settings**.
-             - Then go to **Settings → Accessibility → Installed apps → ReelCount** and enable it.
+          ### 📥 Download & Installation Notes:
+          1. Download the attached **`${RELEASE_APK}`** below to your Android device.
+          2. Tap the APK to install.
+          3. **If Google Play Protect displays "App Blocked"**:
+             - Because ReelCount uses Android's Accessibility Service to detect video scrolling, Play Protect flags sideloaded APKs by default.
+             - Tap **"More details"** (or dropdown arrow) → tap **"Install anyway"**.
+             - Alternatively, in Google Play Store → Profile → Play Protect → Settings (gear) → toggle off "Scan apps with Play Protect" during installation.
+          4. **On Android 13+ (Restricted Settings)**:
+             - Open **Settings → Apps → ReelCount → ⋮ (3 dots top-right) → Allow restricted settings**.
+             - Then open **Settings → Accessibility → ReelCount** and toggle it ON.
           EOF
 
           sed -i "s/\${VERSION}/${VERSION}/g" release_notes.md

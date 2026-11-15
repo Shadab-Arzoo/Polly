@@ -10,7 +10,9 @@ import {
 } from 'react-native';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import PrototypeSettings, {
+  type DayHistoryItem,
   type PrototypeStatus,
+  TARGET_PACKAGES,
 } from './src/native/PrototypeSettings';
 
 type Tab = 'counter' | 'timers' | 'block' | 'settings';
@@ -36,6 +38,9 @@ function App() {
   const [focusTimerRunning, setFocusTimerRunning] = useState(false);
   const [focusTimerSeconds, setFocusTimerSeconds] = useState(15 * 60);
 
+  // 7-Day History state
+  const [dayHistory, setDayHistory] = useState<DayHistoryItem[]>([]);
+
   const [prototypeStatus, setPrototypeStatus] = useState<PrototypeStatus>({
     serviceConnected: false,
     candidateCount: 0,
@@ -46,6 +51,7 @@ function App() {
     snapchatCount: 0,
   });
 
+  // Load status and history periodically
   useEffect(() => {
     let mounted = true;
     const refreshStatus = () => {
@@ -53,20 +59,31 @@ function App() {
         .then(status => {
           if (mounted && status) {
             setPrototypeStatus(status);
+            if (status.dailyShortLimit) {
+              setDailyLimit(status.dailyShortLimit);
+            }
+          }
+        })
+        .catch(() => {});
+
+      PrototypeSettings.getDailyHistory()
+        .then(history => {
+          if (mounted && history && history.length > 0) {
+            setDayHistory(history);
           }
         })
         .catch(() => {});
     };
 
     refreshStatus();
-    const interval = setInterval(refreshStatus, 1000);
+    const interval = setInterval(refreshStatus, 1500);
     return () => {
       mounted = false;
       clearInterval(interval);
     };
   }, []);
 
-  // Timer countdown effect for Focus Mode
+  // Sync Focus Mode timer and native service
   useEffect(() => {
     let timer: ReturnType<typeof setInterval> | null = null;
     if (focusTimerRunning && focusTimerSeconds > 0) {
@@ -75,7 +92,9 @@ function App() {
       }, 1000);
     } else if (focusTimerSeconds === 0 && focusTimerRunning) {
       setFocusTimerRunning(false);
-      Alert.alert('Focus Session Complete', 'Great job avoiding distraction!');
+      setFocusModeActive(false);
+      PrototypeSettings.setFocusMode(false, 0, []).catch(() => {});
+      Alert.alert('Focus Session Complete! 🏆', 'Great job avoiding distraction and staying on track.');
     }
     return () => {
       if (timer) clearInterval(timer);
@@ -107,7 +126,83 @@ function App() {
         youtubeCount: 0,
         snapchatCount: 0,
       }));
+      const updatedHistory = await PrototypeSettings.getDailyHistory();
+      setDayHistory(updatedHistory);
     } catch {}
+  };
+
+  const handleToggleBlockApp = (app: 'ig' | 'tt' | 'yt' | 'sc') => {
+    let nextIg = blockInstagram;
+    let nextTt = blockTikTok;
+    let nextYt = blockYouTube;
+    let nextSc = blockSnapchat;
+
+    if (app === 'ig') {
+      nextIg = !blockInstagram;
+      setBlockInstagram(nextIg);
+    } else if (app === 'tt') {
+      nextTt = !blockTikTok;
+      setBlockTikTok(nextTt);
+    } else if (app === 'yt') {
+      nextYt = !blockYouTube;
+      setBlockYouTube(nextYt);
+    } else if (app === 'sc') {
+      nextSc = !blockSnapchat;
+      setBlockSnapchat(nextSc);
+    }
+
+    if (focusModeActive || focusTimerRunning) {
+      const blocked: string[] = [];
+      if (nextIg) blocked.push(TARGET_PACKAGES.INSTAGRAM);
+      if (nextTt) blocked.push(TARGET_PACKAGES.TIKTOK);
+      if (nextYt) blocked.push(TARGET_PACKAGES.YOUTUBE);
+      if (nextSc) blocked.push(TARGET_PACKAGES.SNAPCHAT);
+      const mins = Math.max(1, Math.ceil(focusTimerSeconds / 60));
+      PrototypeSettings.setFocusMode(true, mins, blocked).catch(() => {});
+    }
+  };
+
+  const getBlockedPackagesList = (): string[] => {
+    const list: string[] = [];
+    if (blockInstagram) list.push(TARGET_PACKAGES.INSTAGRAM);
+    if (blockTikTok) list.push(TARGET_PACKAGES.TIKTOK);
+    if (blockYouTube) list.push(TARGET_PACKAGES.YOUTUBE);
+    if (blockSnapchat) list.push(TARGET_PACKAGES.SNAPCHAT);
+    return list;
+  };
+
+  const handleToggleFocusSession = async () => {
+    if (focusTimerRunning) {
+      // Pause/Cancel session
+      setFocusTimerRunning(false);
+      setFocusModeActive(false);
+      await PrototypeSettings.setFocusMode(false, 0, []);
+    } else {
+      // Start session
+      const blocked = getBlockedPackagesList();
+      const minutes = Math.max(1, Math.ceil(focusTimerSeconds / 60));
+      await PrototypeSettings.setFocusMode(true, minutes, blocked);
+      setFocusModeActive(true);
+      setFocusTimerRunning(true);
+    }
+  };
+
+  const handleSelectDailyLimit = (limit: number) => {
+    setDailyLimit(limit);
+    PrototypeSettings.setDailyLimits(limit, dailyTimeLimitMin).catch(() => {});
+  };
+
+  const handleSelectDailyTimeLimit = (mins: number) => {
+    setDailyTimeLimitMin(mins);
+    PrototypeSettings.setDailyLimits(dailyLimit, mins).catch(() => {});
+  };
+
+  const handleSelectFocusPreset = (mins: number) => {
+    setFocusTimerSeconds(mins * 60);
+    if (focusTimerRunning) {
+      const blocked = getBlockedPackagesList();
+      PrototypeSettings.setFocusMode(true, mins, blocked).catch(() => {});
+    }
   };
 
   const totalShorts = prototypeStatus.candidateCount;
@@ -115,11 +210,11 @@ function App() {
   const progressRatio = Math.min(totalShorts / (dailyLimit || 1), 1);
   const progressPercent = Math.round(progressRatio * 100);
 
-  // App breakdown (fall back to simulated share if session only tracks total)
-  const igCount = prototypeStatus.instagramCount ?? Math.round(totalShorts * 0.45);
-  const ttCount = prototypeStatus.tiktokCount ?? Math.round(totalShorts * 0.35);
-  const ytCount = prototypeStatus.youtubeCount ?? Math.round(totalShorts * 0.15);
-  const scCount = prototypeStatus.snapchatCount ?? Math.max(0, totalShorts - igCount - ttCount - ytCount);
+  // App breakdown
+  const igCount = prototypeStatus.instagramCount ?? 0;
+  const ttCount = prototypeStatus.tiktokCount ?? 0;
+  const ytCount = prototypeStatus.youtubeCount ?? 0;
+  const scCount = prototypeStatus.snapchatCount ?? 0;
 
   // Format seconds into MM:SS
   const formatTimer = (sec: number) => {
@@ -179,7 +274,7 @@ function App() {
           Temporary event metadata buffered: {prototypeStatus.bufferedEventCount}
         </Text>
         <Text style={styles.statusHint}>
-          These temporary diagnostics reset when the service stops. Candidate values are experimental and are not reliable reel counts.
+          Service tracks scroll events live in the background. Use the dashboard to monitor limits and focus blocks.
         </Text>
       </View>
 
@@ -195,8 +290,7 @@ function App() {
           {consentGiven ? <Text style={styles.checkmark}>✓</Text> : null}
         </View>
         <Text style={styles.consentText}>
-          I understand this limited prototype and choose to continue to
-          Android settings.
+          I understand this prototype and choose to continue to Android accessibility settings.
         </Text>
       </Pressable>
 
@@ -215,8 +309,7 @@ function App() {
       </Pressable>
 
       <Text style={styles.settingsHint}>
-        The service remains off until you enable it in Android settings. You
-        can turn it off there at any time.
+        The service remains off until you enable it in Android settings. You can turn it off there at any time.
       </Text>
 
       {settingsError ? (
@@ -266,10 +359,19 @@ function App() {
         </View>
       </View>
 
+      {/* Focus Mode Live Banner if running */}
+      {focusTimerRunning && (
+        <View style={styles.activeFocusBanner}>
+          <Text style={styles.activeFocusBannerText}>
+            🔒 Focus Mode Active · {formatTimer(focusTimerSeconds)} remaining
+          </Text>
+        </View>
+      )}
+
       {/* Hero Counter Card */}
       <View style={styles.heroCard}>
         <View style={styles.heroTopRow}>
-          <Text style={styles.heroCardLabel}>SHORTS SCROLLED</Text>
+          <Text style={styles.heroCardLabel}>SHORTS SCROLLED TODAY</Text>
           <Pressable onPress={handleResetCounters} style={styles.resetButton}>
             <Text style={styles.resetButtonText}>Reset</Text>
           </Pressable>
@@ -297,10 +399,44 @@ function App() {
         <View style={styles.progressLabelRow}>
           <Text style={styles.progressPercentText}>{progressPercent}% of daily limit</Text>
           <Text style={styles.progressRemainingText}>
-            {Math.max(0, dailyLimit - totalShorts)} remaining
+            {progressPercent >= 100
+              ? '⚠️ Daily limit reached!'
+              : `${Math.max(0, dailyLimit - totalShorts)} remaining`}
           </Text>
         </View>
       </View>
+
+      {/* 7-Day Activity History Bar Chart */}
+      {dayHistory.length > 0 && (
+        <View style={styles.sectionCard}>
+          <Text style={styles.cardSectionTitle}>Last 7 Days Activity</Text>
+          <View style={styles.chartContainer}>
+            {dayHistory.map((item, idx) => {
+              const maxCount = Math.max(1, ...dayHistory.map(d => d.count), dailyLimit);
+              const heightRatio = Math.min(item.count / maxCount, 1);
+              const isToday = item.label === 'Today' || idx === dayHistory.length - 1;
+              return (
+                <View key={item.date || idx} style={styles.barCol}>
+                  <Text style={styles.barCountText}>{item.count > 0 ? item.count : ''}</Text>
+                  <View style={styles.barTrack}>
+                    <View
+                      style={[
+                        styles.barFill,
+                        { height: `${Math.max(6, Math.round(heightRatio * 100))}%` },
+                        isToday && styles.barFillToday,
+                        item.count >= dailyLimit && styles.barFillLimit,
+                      ]}
+                    />
+                  </View>
+                  <Text style={[styles.barLabel, isToday && styles.barLabelToday]}>
+                    {item.label}
+                  </Text>
+                </View>
+              );
+            })}
+          </View>
+        </View>
+      )}
 
       {/* App-by-App Breakdown */}
       <View style={styles.sectionCard}>
@@ -395,13 +531,11 @@ function App() {
         </View>
       </View>
 
-      {/* Live Testing Tip Card */}
+      {/* Floating HUD info */}
       <View style={styles.tipCard}>
-        <Text style={styles.tipTitle}>💡 How tracking works</Text>
+        <Text style={styles.tipTitle}>💡 Live Floating Counter HUD</Text>
         <Text style={styles.tipText}>
-          {prototypeStatus.serviceConnected
-            ? 'The accessibility service is active in the background. Open Instagram, TikTok, or YouTube, scroll through videos, and return here to watch your counter update!'
-            : 'Accessibility service is currently not active. Open Settings from the tab bar below to turn it on and start counting.'}
+          When you open Instagram, TikTok, or YouTube, a draggable floating pill appears showing your reel count in real time and vibrates on every swipe.
         </Text>
       </View>
     </ScrollView>
@@ -426,7 +560,7 @@ function App() {
           {[25, 50, 75, 100].map(limit => (
             <Pressable
               key={limit}
-              onPress={() => setDailyLimit(limit)}
+              onPress={() => handleSelectDailyLimit(limit)}
               style={[
                 styles.pillButton,
                 dailyLimit === limit && styles.pillButtonSelected,
@@ -456,7 +590,7 @@ function App() {
           {[15, 30, 45, 60].map(mins => (
             <Pressable
               key={mins}
-              onPress={() => setDailyTimeLimitMin(mins)}
+              onPress={() => handleSelectDailyTimeLimit(mins)}
               style={[
                 styles.pillButton,
                 dailyTimeLimitMin === mins && styles.pillButtonSelected,
@@ -486,7 +620,7 @@ function App() {
           <View style={styles.toggleInfo}>
             <Text style={styles.toggleTitle}>Break Reminder</Text>
             <Text style={styles.toggleSubtitle}>
-              Remind me to take a pause after 20 continuous videos
+              Push notification when reaching daily shorts target
             </Text>
           </View>
           <View
@@ -503,9 +637,9 @@ function App() {
           style={styles.toggleRow}
         >
           <View style={styles.toggleInfo}>
-            <Text style={styles.toggleTitle}>Doomscroll Warning</Text>
+            <Text style={styles.toggleTitle}>Haptic Swipe Vibration</Text>
             <Text style={styles.toggleSubtitle}>
-              Alert if scrolling faster than 5 videos in 60 seconds
+              Tactile vibration pulse on each detected short-video swipe
             </Text>
           </View>
           <View
@@ -528,36 +662,63 @@ function App() {
     <ScrollView contentContainerStyle={styles.content}>
       <Text style={styles.tabScreenTitle}>Block & Focus Mode</Text>
       <Text style={styles.tabScreenSubtitle}>
-        Temporarily lock distractions when you need deep focus or rest.
+        Instantly lock distracting video feeds when you need deep focus or rest.
       </Text>
 
       {/* Focus Session Card */}
       <View style={styles.focusHeroCard}>
-        <Text style={styles.focusHeroTitle}>Deep Work Focus Session</Text>
+        <Text style={styles.focusHeroTitle}>DEEP WORK FOCUS SESSION</Text>
         <Text style={styles.focusTimerText}>{formatTimer(focusTimerSeconds)}</Text>
         <Text style={styles.focusHeroSubtitle}>
           {focusTimerRunning
-            ? 'Distracting short feeds are currently blocked.'
-            : 'Start a focus timer to block distracting feeds.'}
+            ? 'Distracting short feeds are currently blocked. Opening them will automatically return to Home.'
+            : 'Select duration and start a session to block distracting short feeds.'}
         </Text>
+
+        {/* Preset Duration Buttons */}
+        {!focusTimerRunning && (
+          <View style={styles.presetRow}>
+            {[15, 25, 45, 60].map(mins => (
+              <Pressable
+                key={mins}
+                onPress={() => handleSelectFocusPreset(mins)}
+                style={[
+                  styles.presetBtn,
+                  focusTimerSeconds === mins * 60 && styles.presetBtnActive,
+                ]}
+              >
+                <Text
+                  style={[
+                    styles.presetBtnText,
+                    focusTimerSeconds === mins * 60 && styles.presetBtnTextActive,
+                  ]}
+                >
+                  {mins}m
+                </Text>
+              </Pressable>
+            ))}
+          </View>
+        )}
 
         <View style={styles.focusButtonsRow}>
           <Pressable
-            onPress={() => setFocusTimerRunning(prev => !prev)}
+            onPress={handleToggleFocusSession}
             style={[
               styles.focusActionButton,
               focusTimerRunning ? styles.focusStopButton : styles.focusStartButton,
             ]}
           >
             <Text style={styles.focusActionButtonText}>
-              {focusTimerRunning ? 'Pause Session' : 'Start 15m Focus'}
+              {focusTimerRunning ? 'Stop Focus Session' : 'Start Focus Session'}
             </Text>
           </Pressable>
 
           <Pressable
             onPress={() => {
               setFocusTimerRunning(false);
+              setFocusModeActive(false);
               setFocusTimerSeconds(15 * 60);
+              PrototypeSettings.setFocusMode(false, 0, []).catch(() => {});
             }}
             style={styles.focusResetButton}
           >
@@ -570,12 +731,24 @@ function App() {
       <View style={styles.sectionCard}>
         <Text style={styles.cardSectionTitle}>Distraction Blocking Rules</Text>
         <Text style={styles.cardSubtitle}>
-          Choose which video apps should be blocked during focus mode.
+          Choose which video apps should be blocked during active focus sessions.
         </Text>
 
         {/* Focus Master Toggle */}
         <Pressable
-          onPress={() => setFocusModeActive(prev => !prev)}
+          onPress={() => {
+            const next = !focusModeActive;
+            setFocusModeActive(next);
+            if (next) {
+              const blocked = getBlockedPackagesList();
+              const mins = Math.max(1, Math.ceil(focusTimerSeconds / 60));
+              PrototypeSettings.setFocusMode(true, mins, blocked).catch(() => {});
+              setFocusTimerRunning(true);
+            } else {
+              setFocusTimerRunning(false);
+              PrototypeSettings.setFocusMode(false, 0, []).catch(() => {});
+            }
+          }}
           style={styles.toggleRow}
         >
           <View style={styles.toggleInfo}>
@@ -599,7 +772,7 @@ function App() {
         </Pressable>
 
         <Pressable
-          onPress={() => setBlockInstagram(prev => !prev)}
+          onPress={() => handleToggleBlockApp('ig')}
           style={styles.toggleRow}
         >
           <Text style={styles.toggleTitle}>📸 Block Instagram Reels</Text>
@@ -613,7 +786,7 @@ function App() {
         </Pressable>
 
         <Pressable
-          onPress={() => setBlockTikTok(prev => !prev)}
+          onPress={() => handleToggleBlockApp('tt')}
           style={styles.toggleRow}
         >
           <Text style={styles.toggleTitle}>🎵 Block TikTok Feed</Text>
@@ -627,7 +800,7 @@ function App() {
         </Pressable>
 
         <Pressable
-          onPress={() => setBlockYouTube(prev => !prev)}
+          onPress={() => handleToggleBlockApp('yt')}
           style={styles.toggleRow}
         >
           <Text style={styles.toggleTitle}>▶️ Block YouTube Shorts</Text>
@@ -641,7 +814,7 @@ function App() {
         </Pressable>
 
         <Pressable
-          onPress={() => setBlockSnapchat(prev => !prev)}
+          onPress={() => handleToggleBlockApp('sc')}
           style={styles.toggleRow}
         >
           <Text style={styles.toggleTitle}>👻 Block Snapchat Spotlight</Text>
@@ -691,7 +864,7 @@ function App() {
         </View>
 
         <Text style={styles.body}>
-          Candidate transitions this session: {prototypeStatus.candidateCount}
+          Today's persisted shorts: {prototypeStatus.candidateCount}
         </Text>
         <Text style={styles.body}>
           Temporary event metadata buffered: {prototypeStatus.bufferedEventCount}
@@ -717,7 +890,7 @@ function App() {
           • Zero screen text, UI tree data, messages, or screenshots are captured.
         </Text>
         <Text style={styles.body}>
-          • Traces stay exclusively in volatile memory and reset on service restart.
+          • Daily totals are stored locally on your device with no external cloud servers.
         </Text>
       </View>
 
@@ -851,7 +1024,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 20,
+    marginBottom: 16,
   },
   appHeaderTitle: {
     color: '#f0f6f3',
@@ -889,6 +1062,23 @@ const styles = StyleSheet.create({
     color: '#9ba9a1',
   },
 
+  // Focus Banner
+  activeFocusBanner: {
+    backgroundColor: '#2b1b1b',
+    borderColor: '#ff5252',
+    borderWidth: 1,
+    borderRadius: 12,
+    paddingVertical: 10,
+    paddingHorizontal: 14,
+    marginBottom: 16,
+    alignItems: 'center',
+  },
+  activeFocusBannerText: {
+    color: '#ff8a80',
+    fontSize: 13,
+    fontWeight: '700',
+  },
+
   // Hero Counter Card
   heroCard: {
     backgroundColor: '#182621',
@@ -896,7 +1086,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderRadius: 16,
     padding: 20,
-    marginBottom: 20,
+    marginBottom: 16,
   },
   heroTopRow: {
     flexDirection: 'row',
@@ -973,6 +1163,55 @@ const styles = StyleSheet.create({
   progressRemainingText: {
     color: '#7e968a',
     fontSize: 12,
+  },
+
+  // 7-Day History Chart
+  chartContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-end',
+    height: 110,
+    paddingTop: 8,
+  },
+  barCol: {
+    flex: 1,
+    alignItems: 'center',
+  },
+  barCountText: {
+    color: '#8fa59a',
+    fontSize: 10,
+    fontWeight: '700',
+    marginBottom: 4,
+    minHeight: 14,
+  },
+  barTrack: {
+    width: 20,
+    height: 64,
+    backgroundColor: '#263830',
+    borderRadius: 6,
+    justifyContent: 'flex-end',
+    overflow: 'hidden',
+  },
+  barFill: {
+    width: '100%',
+    backgroundColor: '#38d39f',
+    borderRadius: 6,
+  },
+  barFillToday: {
+    backgroundColor: '#00f2fe',
+  },
+  barFillLimit: {
+    backgroundColor: '#ff5252',
+  },
+  barLabel: {
+    color: '#7e968a',
+    fontSize: 11,
+    fontWeight: '600',
+    marginTop: 6,
+  },
+  barLabelToday: {
+    color: '#00f2fe',
+    fontWeight: '800',
   },
 
   // Section Cards
@@ -1171,21 +1410,47 @@ const styles = StyleSheet.create({
   },
   focusHeroTitle: {
     color: '#38d39f',
-    fontSize: 14,
-    fontWeight: '700',
-    letterSpacing: 1,
+    fontSize: 12,
+    fontWeight: '800',
+    letterSpacing: 1.2,
   },
   focusTimerText: {
     color: '#f0f6f3',
     fontSize: 54,
     fontWeight: '900',
-    marginVertical: 12,
+    marginVertical: 10,
   },
   focusHeroSubtitle: {
     color: '#9eb4a9',
     fontSize: 13,
     textAlign: 'center',
-    marginBottom: 18,
+    marginBottom: 16,
+  },
+  presetRow: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    marginBottom: 16,
+  },
+  presetBtn: {
+    paddingHorizontal: 14,
+    paddingVertical: 6,
+    backgroundColor: '#253d32',
+    borderRadius: 8,
+    marginHorizontal: 4,
+    borderColor: '#375747',
+    borderWidth: 1,
+  },
+  presetBtnActive: {
+    backgroundColor: '#38d39f',
+    borderColor: '#38d39f',
+  },
+  presetBtnText: {
+    color: '#c2d4cb',
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  presetBtnTextActive: {
+    color: '#0f1715',
   },
   focusButtonsRow: {
     flexDirection: 'row',
@@ -1208,7 +1473,7 @@ const styles = StyleSheet.create({
   focusActionButtonText: {
     color: '#0f1715',
     fontSize: 15,
-    fontWeight: '700',
+    fontWeight: '800',
   },
   focusResetButton: {
     flex: 1,
