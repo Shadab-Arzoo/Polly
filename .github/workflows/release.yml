@@ -46,23 +46,33 @@ jobs:
       - name: Create Release and Upload APK
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_SHA: ${{ github.sha }}
         run: |
-          VERSION="v0.2.${{ github.run_number }}"
-          APK_FILE="android/app/build/outputs/apk/debug/app-debug.apk"
-          RELEASE_APK="ReelCount-${VERSION}.apk"
+          export VERSION="v0.2.${{ github.run_number }}"
+          export APK_FILE="android/app/build/outputs/apk/debug/app-debug.apk"
+          export RELEASE_APK="ReelCount-${VERSION}.apk"
           cp "$APK_FILE" "$RELEASE_APK"
 
-          COMMIT_TITLE=$(git log -1 --pretty=%s)
-          RELEASE_TITLE="ReelCount ${VERSION} - ${COMMIT_TITLE}"
+          export COMMIT_TITLE=$(git log -1 --pretty=%s)
+          export RELEASE_TITLE="ReelCount ${VERSION} - ${COMMIT_TITLE}"
 
-          cat << 'EOF' > release_notes.md
-          ## 📱 ReelCount ${VERSION}
+          python3 - << 'PYEOF'
+          import os
+
+          version = os.environ.get("VERSION", "v0.2")
+          release_apk = os.environ.get("RELEASE_APK", "ReelCount.apk")
+          commit_title = os.environ.get("COMMIT_TITLE", "Update")
+          sha = os.environ.get("GITHUB_SHA", "")
+
+          notes = f"""## 📱 ReelCount {version}
 
           ### 🚀 What's New in This Release:
-          - **Change**: ${COMMIT_TITLE}
-          - **Commit**: `${{ github.sha }}`
+          - **Change**: {commit_title}
+          - **Commit**: `{sha}`
 
           ### ✨ Key Features Included:
+          - **Full UI/UX Overhaul**: Circular dynamic ring metric, dopamine risk gauge, interactive 7-day insight inspector, bedtime sleep shield, and 4-4-4 mindful box breathing.
+          - **Auto-Advance to Dashboard**: Instant recognition when accessibility service is active with smooth entry into the Home Dashboard.
           - **True Native App Blocking**: Blocks target apps (Instagram, TikTok, YouTube, Snapchat) during Focus Sessions and automatically returns to Home (`GLOBAL_ACTION_HOME`).
           - **Persistent Counting & 7-Day Bar Chart**: Local device storage saves counts across phone reboots and displays weekly usage trends on the dashboard.
           - **Daily Limit Alerts & Notifications**: Push notification and red warning badge when your daily short limit is reached.
@@ -71,7 +81,7 @@ jobs:
           - **Custom App Icon**: Fresh emerald film-reel icon across all Android device resolutions.
 
           ### 📥 Download & Installation Notes:
-          1. Download the attached **`${RELEASE_APK}`** below directly to your Android phone.
+          1. Download the attached **`{release_apk}`** below directly to your Android phone.
           2. Tap the downloaded APK to install.
           3. **If Google Play Protect displays "App Blocked"**:
              - Because ReelCount uses Android's Accessibility Service to detect video scrolling, Play Protect flags sideloaded APKs by default.
@@ -80,11 +90,11 @@ jobs:
           4. **On Android 13+ (Restricted Settings)**:
              - Open **Settings → Apps → ReelCount → ⋮ (3 dots top-right) → Allow restricted settings**.
              - Then open **Settings → Accessibility → ReelCount** and toggle it ON.
-          EOF
+          """
 
-          sed -i "s/\${VERSION}/${VERSION}/g" release_notes.md
-          sed -i "s/\${RELEASE_APK}/${RELEASE_APK}/g" release_notes.md
-          sed -i "s/\${COMMIT_TITLE}/${COMMIT_TITLE}/g" release_notes.md
+          with open("release_notes.md", "w") as f:
+              f.write(notes)
+          PYEOF
 
           gh release create "$VERSION" "$RELEASE_APK" \
             --title "$RELEASE_TITLE" \

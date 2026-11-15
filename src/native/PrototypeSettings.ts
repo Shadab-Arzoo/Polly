@@ -12,6 +12,7 @@ export type PrototypeStatus = {
   focusRemainingSeconds?: number;
   dailyShortLimit?: number;
   dailyTimeLimitMinutes?: number;
+  onboardingCompleted?: boolean;
 };
 
 export type DayHistoryItem = {
@@ -34,6 +35,7 @@ type PrototypeSettingsModule = {
     timeLimitMinutes: number,
   ): Promise<boolean>;
   getDailyHistory(): Promise<DayHistoryItem[]>;
+  setOnboardingCompleted(completed: boolean): Promise<boolean>;
 };
 
 const { PrototypeSettings } = NativeModules as {
@@ -108,5 +110,11 @@ export default {
       return Promise.resolve([]);
     }
     return PrototypeSettings.getDailyHistory();
+  },
+  setOnboardingCompleted(completed: boolean): Promise<boolean> {
+    if (!PrototypeSettings?.setOnboardingCompleted) {
+      return Promise.resolve(false);
+    }
+    return PrototypeSettings.setOnboardingCompleted(completed);
   },
 };

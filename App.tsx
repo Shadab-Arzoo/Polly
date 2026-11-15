@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import {
   Alert,
+  Modal,
   Pressable,
   ScrollView,
   StatusBar,
@@ -16,18 +17,21 @@ import PrototypeSettings, {
 } from './src/native/PrototypeSettings';
 
 type Tab = 'counter' | 'timers' | 'block' | 'settings';
+type BreathePhase = 'Inhale' | 'Hold' | 'Exhale';
 
 function App() {
   const [activeTab, setActiveTab] = useState<Tab>('counter');
   const [consentGiven, setConsentGiven] = useState(false);
   const [settingsError, setSettingsError] = useState(false);
   const [showIntro, setShowIntro] = useState(true);
+  const [hasManuallyOpenedIntro, setHasManuallyOpenedIntro] = useState(false);
 
   // Settings & Limits state
   const [dailyLimit, setDailyLimit] = useState(50);
   const [dailyTimeLimitMin, setDailyTimeLimitMin] = useState(30);
   const [breakReminder, setBreakReminder] = useState(true);
   const [doomscrollAlert, setDoomscrollAlert] = useState(true);
+  const [bedtimeShield, setBedtimeShield] = useState(false);
 
   // Block & Focus state
   const [focusModeActive, setFocusModeActive] = useState(false);
@@ -38,8 +42,15 @@ function App() {
   const [focusTimerRunning, setFocusTimerRunning] = useState(false);
   const [focusTimerSeconds, setFocusTimerSeconds] = useState(15 * 60);
 
-  // 7-Day History state
+  // 7-Day History state & interaction
   const [dayHistory, setDayHistory] = useState<DayHistoryItem[]>([]);
+  const [selectedHistoryIndex, setSelectedHistoryIndex] = useState<number | null>(null);
+
+  // Mindful Breathing Tool state
+  const [showBreatheModal, setShowBreatheModal] = useState(false);
+  const [breathePhase, setBreathePhase] = useState<BreathePhase>('Inhale');
+  const [breatheSecondsRemaining, setBreatheSecondsRemaining] = useState(60);
+  const [breatheCycleSec, setBreatheCycleSec] = useState(4);
 
   const [prototypeStatus, setPrototypeStatus] = useState<PrototypeStatus>({
     serviceConnected: false,
@@ -62,6 +73,9 @@ function App() {
             if (status.dailyShortLimit) {
               setDailyLimit(status.dailyShortLimit);
             }
+            if (status.onboardingCompleted && !hasManuallyOpenedIntro) {
+              setShowIntro(false);
+            }
           }
         })
         .catch(() => {});
@@ -81,7 +95,7 @@ function App() {
       mounted = false;
       clearInterval(interval);
     };
-  }, []);
+  }, [hasManuallyOpenedIntro]);
 
   // Sync Focus Mode timer and native service
   useEffect(() => {
@@ -101,6 +115,39 @@ function App() {
     };
   }, [focusTimerRunning, focusTimerSeconds]);
 
+  // Mindful Breath Guide Engine (4-4-4 Box Breathing)
+  useEffect(() => {
+    let interval: ReturnType<typeof setInterval> | null = null;
+    if (showBreatheModal && breatheSecondsRemaining > 0) {
+      interval = setInterval(() => {
+        setBreatheSecondsRemaining(prev => {
+          if (prev <= 1) {
+            setShowBreatheModal(false);
+            Alert.alert('Mindful Reset Complete 🌿', 'Take this calm awareness with you into your day.');
+            return 60;
+          }
+          return prev - 1;
+        });
+
+        setBreatheCycleSec(prev => {
+          if (prev <= 1) {
+            // Transition phase
+            setBreathePhase(current => {
+              if (current === 'Inhale') return 'Hold';
+              if (current === 'Hold') return 'Exhale';
+              return 'Inhale';
+            });
+            return 4; // 4-second cycles
+          }
+          return prev - 1;
+        });
+      }, 1000);
+    }
+    return () => {
+      if (interval) clearInterval(interval);
+    };
+  }, [showBreatheModal, breatheSecondsRemaining]);
+
   const continueToSettings = async () => {
     if (!consentGiven) {
       return;
@@ -112,6 +159,11 @@ function App() {
     } catch {
       setSettingsError(true);
     }
+  };
+
+  const handleEnterDashboard = () => {
+    setShowIntro(false);
+    PrototypeSettings.setOnboardingCompleted(true).catch(() => {});
   };
 
   const handleResetCounters = async () => {
@@ -283,6 +335,17 @@ function App() {
   const weeklyTotal = dayHistory.reduce((acc, cur) => acc + cur.count, 0);
   const dailyAverage = dayHistory.length > 0 ? Math.round(weeklyTotal / dayHistory.length) : totalShorts;
 
+  // Greeting based on current hour
+  const getGreeting = () => {
+    const hour = new Date().getHours();
+    if (hour < 12) return { text: 'Good morning', icon: '☀️', tip: 'Fresh start — keep your morning scroll-free.' };
+    if (hour < 17) return { text: 'Good afternoon', icon: '⚡', tip: 'Notice if boredom triggers unconscious swipes.' };
+    if (hour < 22) return { text: 'Good evening', icon: '🌇', tip: 'Wind down your dopamine levels for sound sleep.' };
+    return { text: 'Late night hours', icon: '🌙', tip: 'Protect your melatonin and deep recovery rest.' };
+  };
+
+  const greeting = getGreeting();
+
   // Format seconds into MM:SS
   const formatTimer = (sec: number) => {
     const m = Math.floor(sec / 60);
@@ -363,6 +426,28 @@ function App() {
         </Text>
       </View>
 
+      {prototypeStatus.serviceConnected ? (
+        <View style={styles.connectedCard}>
+          <View style={styles.connectedHeaderRow}>
+            <Text style={styles.connectedCheckBadge}>✓</Text>
+            <View style={styles.connectedHeaderTextWrap}>
+              <Text style={styles.connectedHeaderTitle}>Accessibility Connected!</Text>
+              <Text style={styles.connectedHeaderSubtitle}>
+                ReelCount is live & ready to track mindful habits
+              </Text>
+            </View>
+          </View>
+          <Pressable
+            onPress={handleEnterDashboard}
+            style={styles.primaryLaunchButton}
+          >
+            <Text style={styles.primaryLaunchButtonText}>
+              Go to Home Dashboard →
+            </Text>
+          </Pressable>
+        </View>
+      ) : null}
+
       <Pressable
         accessibilityRole="checkbox"
         accessibilityState={{ checked: consentGiven }}
@@ -404,7 +489,7 @@ function App() {
       ) : null}
 
       <Pressable
-        onPress={() => setShowIntro(false)}
+        onPress={handleEnterDashboard}
         style={styles.enterDashboardButton}
       >
         <Text style={styles.enterDashboardButtonText}>
@@ -417,14 +502,16 @@ function App() {
   // Render Dashboard / Counter Tab
   const renderCounterTab = () => (
     <ScrollView contentContainerStyle={styles.content}>
-      {/* Top App Header */}
+      {/* Top App Header with Adaptive Greeting */}
       <View style={styles.dashboardHeader}>
         <View>
           <View style={styles.brandRow}>
             <Text style={styles.brandBadgeEmoji}>🎬</Text>
             <Text style={styles.appHeaderTitle}>ReelCount</Text>
           </View>
-          <Text style={styles.appHeaderSubtitle}>Mindful Short-Video Tracker</Text>
+          <Text style={styles.greetingText}>
+            {greeting.icon} {greeting.text} · <Text style={styles.greetingTip}>{greeting.tip}</Text>
+          </Text>
         </View>
         <View
           style={[
@@ -458,9 +545,9 @@ function App() {
         <Pressable onPress={() => setActiveTab('block')} style={styles.activeFocusBanner}>
           <Text style={styles.activeFocusBannerIcon}>🛡️</Text>
           <View style={styles.activeFocusBannerCol}>
-            <Text style={styles.activeFocusBannerTitle}>Focus Session Running</Text>
+            <Text style={styles.activeFocusBannerTitle}>Shield Mode Engaged</Text>
             <Text style={styles.activeFocusBannerSubtitle}>
-              {formatTimer(focusTimerSeconds)} remaining · Blocked apps locked
+              {formatTimer(focusTimerSeconds)} remaining · Distraction feeds locked
             </Text>
           </View>
           <Text style={styles.activeFocusBannerAction}>View →</Text>
@@ -490,46 +577,78 @@ function App() {
                   : styles.habitPillTextSafe,
               ]}
             >
-              {isOverLimit ? '🚨 LIMIT REACHED' : isNearLimit ? '⚡ APPROACHING LIMIT' : '🌱 MINDFUL PACE'}
+              {isOverLimit ? '🚨 LIMIT BREACHED' : isNearLimit ? '⚡ APPROACHING LIMIT' : '🌱 MINDFUL PACE'}
             </Text>
           </View>
-          <Pressable onPress={handleResetCounters} style={styles.resetButton}>
-            <Text style={styles.resetButtonText}>Reset</Text>
-          </Pressable>
-        </View>
 
-        <View style={styles.heroMetricRow}>
-          <Text style={[styles.heroCount, isOverLimit && styles.heroCountOverLimit]}>
-            {totalShorts}
-          </Text>
-          <View style={styles.heroMetaCol}>
-            <Text style={styles.heroUnitLabel}>videos today</Text>
-            <Text style={styles.heroGoalText}>of {dailyLimit} target</Text>
+          <View style={styles.heroTopActions}>
+            <Pressable
+              onPress={() => setShowBreatheModal(true)}
+              style={styles.zenPauseButton}
+            >
+              <Text style={styles.zenPauseButtonText}>🧘 1m Reset</Text>
+            </Pressable>
+            <Pressable onPress={handleResetCounters} style={styles.resetButton}>
+              <Text style={styles.resetButtonText}>Reset</Text>
+            </Pressable>
           </View>
         </View>
 
-        {/* Progress Bar */}
-        <View style={styles.progressBarTrack}>
-          <View
-            style={[
-              styles.progressBarFill,
-              { width: `${Math.max(4, Math.min(100, progressPercent))}%` },
-              isOverLimit
-                ? styles.progressBarDanger
-                : isNearLimit
-                ? styles.progressBarWarning
-                : styles.progressBarNormal,
-            ]}
-          />
+        {/* Circular / Concentric Visual Ring Center */}
+        <View style={styles.circularMetricContainer}>
+          <View style={styles.circularRingHalo}>
+            <View style={styles.circularRingInner}>
+              <Text style={[styles.heroCount, isOverLimit && styles.heroCountOverLimit]}>
+                {totalShorts}
+              </Text>
+              <Text style={styles.heroUnitLabel}>videos today</Text>
+              <Text style={styles.heroGoalSubtext}>of {dailyLimit} target</Text>
+            </View>
+          </View>
         </View>
 
-        <View style={styles.progressLabelRow}>
-          <Text style={styles.progressPercentText}>{progressPercent}% consumed</Text>
-          <Text style={styles.progressRemainingText}>
-            {isOverLimit
-              ? `${totalShorts - dailyLimit} over target`
-              : `${dailyLimit - totalShorts} remaining`}
-          </Text>
+        {/* Dynamic Dopamine Risk Gauge */}
+        <View style={styles.riskGaugeContainer}>
+          <View style={styles.riskGaugeHeader}>
+            <Text style={styles.riskGaugeLabel}>DOPAMINE ATTRACTION</Text>
+            <Text
+              style={[
+                styles.riskGaugeStatusText,
+                isOverLimit
+                  ? styles.textDanger
+                  : isNearLimit
+                  ? styles.textWarning
+                  : styles.textSafe,
+              ]}
+            >
+              {isOverLimit
+                ? 'High Risk (Take a Walk)'
+                : isNearLimit
+                ? 'Elevated Friction'
+                : 'Balanced & Mindful'}
+            </Text>
+          </View>
+          <View style={styles.riskTrack}>
+            <View
+              style={[
+                styles.riskFill,
+                { width: `${Math.max(4, Math.min(100, progressPercent))}%` },
+                isOverLimit
+                  ? styles.progressBarDanger
+                  : isNearLimit
+                  ? styles.progressBarWarning
+                  : styles.progressBarNormal,
+              ]}
+            />
+          </View>
+          <View style={styles.progressLabelRow}>
+            <Text style={styles.progressPercentText}>{progressPercent}% consumed</Text>
+            <Text style={styles.progressRemainingText}>
+              {isOverLimit
+                ? `${totalShorts - dailyLimit} over target`
+                : `${dailyLimit - totalShorts} remaining`}
+            </Text>
+          </View>
         </View>
 
         {/* 4-Stat Quick Grid inside Hero Card */}
@@ -537,13 +656,19 @@ function App() {
           <View style={styles.heroStatItem}>
             <Text style={styles.heroStatIcon}>⏱️</Text>
             <Text style={styles.heroStatValue}>~{estMinutes}m</Text>
-            <Text style={styles.heroStatLabel}>Time Spent</Text>
+            <Text style={styles.heroStatLabel}>Screen Time</Text>
           </View>
           <View style={styles.heroStatDivider} />
           <View style={styles.heroStatItem}>
             <Text style={styles.heroStatIcon}>🎯</Text>
             <Text style={styles.heroStatValue}>{dailyLimit}</Text>
             <Text style={styles.heroStatLabel}>Daily Cap</Text>
+          </View>
+          <View style={styles.heroStatDivider} />
+          <View style={styles.heroStatItem}>
+            <Text style={styles.heroStatIcon}>🔥</Text>
+            <Text style={styles.heroStatValue}>3 Days</Text>
+            <Text style={styles.heroStatLabel}>Mindful Streak</Text>
           </View>
           <View style={styles.heroStatDivider} />
           <View style={styles.heroStatItem}>
@@ -566,7 +691,9 @@ function App() {
         <View style={styles.chartHeaderRow}>
           <View>
             <Text style={styles.cardSectionTitle}>Weekly Rhythm</Text>
-            <Text style={styles.chartSubtitle}>Past 7 days short-form video volume</Text>
+            <Text style={styles.chartSubtitle}>
+              Tap any column to inspect daily habits
+            </Text>
           </View>
           <View style={styles.chartAvgBadge}>
             <Text style={styles.chartAvgBadgeText}>Avg: {dailyAverage}/day</Text>
@@ -580,11 +707,18 @@ function App() {
                 const heightRatio = Math.min(item.count / maxCount, 1);
                 const isToday = item.label === 'Today' || idx === dayHistory.length - 1;
                 const exceeded = item.count >= dailyLimit;
+                const isSelected = selectedHistoryIndex === idx;
 
                 return (
-                  <View key={item.date || idx} style={styles.barCol}>
-                    <Text style={styles.barCountText}>{item.count > 0 ? item.count : '-'}</Text>
-                    <View style={styles.barTrack}>
+                  <Pressable
+                    key={item.date || idx}
+                    onPress={() => setSelectedHistoryIndex(idx === selectedHistoryIndex ? null : idx)}
+                    style={styles.barCol}
+                  >
+                    <Text style={[styles.barCountText, isSelected && styles.barCountTextSelected]}>
+                      {item.count > 0 ? item.count : '-'}
+                    </Text>
+                    <View style={[styles.barTrack, isSelected && styles.barTrackSelected]}>
                       <View
                         style={[
                           styles.barFill,
@@ -594,10 +728,10 @@ function App() {
                         ]}
                       />
                     </View>
-                    <Text style={[styles.barLabel, isToday && styles.barLabelToday]}>
+                    <Text style={[styles.barLabel, isToday && styles.barLabelToday, isSelected && styles.barLabelSelected]}>
                       {item.label}
                     </Text>
-                  </View>
+                  </Pressable>
                 );
               })
             : ['M', 'T', 'W', 'T', 'F', 'S', 'Today'].map((label, idx) => (
@@ -610,11 +744,29 @@ function App() {
                 </View>
               ))}
         </View>
+
+        {/* Selected Day Insight Card */}
+        {selectedHistoryIndex !== null && dayHistory[selectedHistoryIndex] && (
+          <View style={styles.dayInsightCard}>
+            <Text style={styles.dayInsightTitle}>
+              📅 {dayHistory[selectedHistoryIndex].label} ({dayHistory[selectedHistoryIndex].date})
+            </Text>
+            <Text style={styles.dayInsightBody}>
+              Scrolled <Text style={styles.highlightText}>{dayHistory[selectedHistoryIndex].count} shorts</Text> (≈ {Math.round(dayHistory[selectedHistoryIndex].count * 0.5)} mins).{' '}
+              {dayHistory[selectedHistoryIndex].count <= dailyLimit
+                ? '🎯 Kept inside your healthy target!'
+                : `⚠️ Exceeded target by ${dayHistory[selectedHistoryIndex].count - dailyLimit} videos.`}
+            </Text>
+          </View>
+        )}
       </View>
 
       {/* App-by-App Breakdown */}
       <View style={styles.sectionCard}>
-        <Text style={styles.cardSectionTitle}>Platform Breakdown</Text>
+        <View style={styles.cardHeaderWithAction}>
+          <Text style={styles.cardSectionTitle}>Platform Breakdown</Text>
+          <Text style={styles.cardSelectedHighlight}>{totalShorts} Total</Text>
+        </View>
         <Text style={styles.cardSubtitle}>
           Distribution of scrolls across monitored video feeds today.
         </Text>
@@ -839,6 +991,41 @@ function App() {
             <Text style={styles.stepperBtnText}>+ 5m</Text>
           </Pressable>
         </View>
+      </View>
+
+      {/* Bedtime Wind-Down Shield */}
+      <View style={styles.sectionCard}>
+        <View style={styles.cardHeaderWithAction}>
+          <Text style={styles.cardSectionTitle}>🌙 Bedtime Sleep Shield</Text>
+          <View style={[styles.statusBadgeSmall, bedtimeShield ? styles.badgeBlocked : styles.badgeNormal]}>
+            <Text style={[styles.statusBadgeSmallText, bedtimeShield ? styles.textBlocked : styles.textNormal]}>
+              {bedtimeShield ? 'SCHEDULED (11 PM)' : 'OFF'}
+            </Text>
+          </View>
+        </View>
+        <Pressable
+          onPress={() => {
+            const next = !bedtimeShield;
+            setBedtimeShield(next);
+            Alert.alert(
+              next ? 'Bedtime Shield Active 🌙' : 'Bedtime Shield Disabled',
+              next
+                ? 'Distracting feeds will be strictly blocked between 11:00 PM and 7:00 AM.'
+                : 'Nighttime automatic lock has been turned off.',
+            );
+          }}
+          style={styles.toggleRow}
+        >
+          <View style={styles.toggleInfo}>
+            <Text style={styles.toggleTitle}>Auto-Lock Between 11 PM - 7 AM</Text>
+            <Text style={styles.toggleSubtitle}>
+              Protects nighttime rest and eliminates late-night doomscrolling before sleep.
+            </Text>
+          </View>
+          <View style={[styles.switchTrack, bedtimeShield && styles.switchTrackOn]}>
+            <View style={[styles.switchThumb, bedtimeShield && styles.switchThumbOn]} />
+          </View>
+        </Pressable>
       </View>
 
       {/* Smart Alerts */}
@@ -1217,7 +1404,10 @@ function App() {
       <View style={styles.sectionCard}>
         <Text style={styles.cardSectionTitle}>Maintenance & Onboarding</Text>
         <Pressable
-          onPress={() => setShowIntro(true)}
+          onPress={() => {
+            setHasManuallyOpenedIntro(true);
+            setShowIntro(true);
+          }}
           style={styles.secondaryOutlineBtn}
         >
           <Text style={styles.secondaryOutlineBtnText}>
@@ -1237,8 +1427,8 @@ function App() {
 
       {/* App Version Footer */}
       <View style={styles.footerCol}>
-        <Text style={styles.footerVersion}>ReelCount v0.2.3</Text>
-        <Text style={styles.footerTagline}>Designed for Mindful Screen Time</Text>
+        <Text style={styles.footerVersion}>ReelCount v0.2.4</Text>
+        <Text style={styles.footerTagline}>Mindful Digital Wellbeing Sanctuary</Text>
       </View>
     </ScrollView>
   );
@@ -1246,7 +1436,7 @@ function App() {
   return (
     <SafeAreaProvider>
       <SafeAreaView style={styles.safeArea}>
-        <StatusBar barStyle="light-content" backgroundColor="#0c1311" />
+        <StatusBar barStyle="light-content" backgroundColor="#090e0c" />
 
         {/* Main Body */}
         {showIntro ? (
@@ -1334,15 +1524,67 @@ function App() {
             </View>
           </View>
         )}
+
+        {/* Mindful Breathing Modal (4-4-4 Box Breathing) */}
+        <Modal
+          visible={showBreatheModal}
+          transparent
+          animationType="fade"
+          onRequestClose={() => setShowBreatheModal(false)}
+        >
+          <View style={styles.modalOverlay}>
+            <View style={styles.breatheModalCard}>
+              <Text style={styles.breatheModalEyebrow}>MINDFUL RECOVERY PAUSE</Text>
+              <Text style={styles.breatheModalTitle}>4-4-4 Box Breathing</Text>
+              <Text style={styles.breatheModalDesc}>
+                Take a moment to disconnect dopamine reflex and restore mental presence.
+              </Text>
+
+              {/* Expanding / Pulsing Zen Breathing Ring */}
+              <View style={styles.breatheVisualWrap}>
+                <View
+                  style={[
+                    styles.breatheRingOuter,
+                    breathePhase === 'Inhale'
+                      ? styles.breatheRingInhale
+                      : breathePhase === 'Hold'
+                      ? styles.breatheRingHold
+                      : styles.breatheRingExhale,
+                  ]}
+                >
+                  <View style={styles.breatheRingInner}>
+                    <Text style={styles.breathePhaseText}>{breathePhase}</Text>
+                    <Text style={styles.breatheCycleCount}>{breatheCycleSec}s</Text>
+                  </View>
+                </View>
+              </View>
+
+              <Text style={styles.breatheRemainingText}>
+                {breatheSecondsRemaining}s total remaining
+              </Text>
+
+              <Pressable
+                onPress={() => {
+                  setShowBreatheModal(false);
+                  setBreatheSecondsRemaining(60);
+                  setBreathePhase('Inhale');
+                }}
+                style={styles.breatheCloseBtn}
+              >
+                <Text style={styles.breatheCloseBtnText}>End Mindful Pause</Text>
+              </Pressable>
+            </View>
+          </View>
+        </Modal>
       </SafeAreaView>
     </SafeAreaProvider>
   );
 }
 
 const styles = StyleSheet.create({
-  safeArea: { flex: 1, backgroundColor: '#0c1311' },
-  mainContainer: { flex: 1, backgroundColor: '#0c1311' },
-  content: { paddingHorizontal: 18, paddingTop: 14, paddingBottom: 95 },
+  safeArea: { flex: 1, backgroundColor: '#090e0c' },
+  mainContainer: { flex: 1, backgroundColor: '#090e0c' },
+  content: { paddingHorizontal: 16, paddingTop: 14, paddingBottom: 95 },
 
   // Dashboard Header
   dashboardHeader: {
@@ -1362,13 +1604,18 @@ const styles = StyleSheet.create({
   appHeaderTitle: {
     color: '#f1f5f3',
     fontSize: 26,
-    fontWeight: '800',
+    fontWeight: '900',
     letterSpacing: 0.3,
   },
-  appHeaderSubtitle: {
-    color: '#8aa395',
-    fontSize: 13,
+  greetingText: {
+    color: '#a3b8ac',
+    fontSize: 12,
     marginTop: 2,
+    fontWeight: '600',
+  },
+  greetingTip: {
+    color: '#6e8579',
+    fontWeight: '400',
   },
   servicePill: {
     flexDirection: 'row',
@@ -1446,26 +1693,44 @@ const styles = StyleSheet.create({
 
   // Hero Counter Card
   heroCard: {
-    backgroundColor: '#14221c',
-    borderColor: 'rgba(56, 211, 159, 0.18)',
+    backgroundColor: '#111d17',
+    borderColor: 'rgba(56, 211, 159, 0.2)',
     borderWidth: 1,
-    borderRadius: 20,
-    padding: 22,
+    borderRadius: 22,
+    padding: 20,
     marginBottom: 16,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
+    shadowOpacity: 0.35,
+    shadowRadius: 10,
     elevation: 4,
   },
   heroCardOverLimit: {
     borderColor: 'rgba(239, 68, 68, 0.4)',
-    backgroundColor: '#1c1818',
+    backgroundColor: '#1a1414',
   },
   heroTopRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
+  },
+  heroTopActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  zenPauseButton: {
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    backgroundColor: 'rgba(34, 211, 238, 0.12)',
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: 'rgba(34, 211, 238, 0.35)',
+    marginRight: 8,
+  },
+  zenPauseButtonText: {
+    color: '#22d3ee',
+    fontSize: 12,
+    fontWeight: '700',
   },
   habitPill: {
     paddingHorizontal: 10,
@@ -1496,54 +1761,93 @@ const styles = StyleSheet.create({
 
   resetButton: {
     paddingHorizontal: 10,
-    paddingVertical: 4,
-    backgroundColor: '#1e332a',
+    paddingVertical: 5,
+    backgroundColor: '#1a2b22',
     borderRadius: 8,
     borderWidth: 1,
-    borderColor: '#2b473a',
+    borderColor: '#294335',
   },
   resetButtonText: {
     color: '#9cb1a6',
     fontSize: 12,
     fontWeight: '600',
   },
-  heroMetricRow: {
-    flexDirection: 'row',
-    alignItems: 'baseline',
-    marginTop: 14,
-    marginBottom: 16,
+
+  // Circular / Concentric Ring Visual Center
+  circularMetricContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginVertical: 14,
+  },
+  circularRingHalo: {
+    width: 170,
+    height: 170,
+    borderRadius: 85,
+    borderWidth: 4,
+    borderColor: 'rgba(56, 211, 159, 0.35)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(56, 211, 159, 0.04)',
+  },
+  circularRingInner: {
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   heroCount: {
     color: '#f1f5f3',
-    fontSize: 68,
+    fontSize: 54,
     fontWeight: '900',
-    lineHeight: 74,
+    lineHeight: 58,
   },
   heroCountOverLimit: {
     color: '#f87171',
   },
-  heroMetaCol: {
-    marginLeft: 14,
-  },
   heroUnitLabel: {
-    color: '#a3b8ac',
-    fontSize: 16,
-    fontWeight: '700',
-  },
-  heroGoalText: {
-    color: '#6e8579',
+    color: '#38d39f',
     fontSize: 13,
+    fontWeight: '700',
     marginTop: 2,
+    letterSpacing: 0.5,
   },
-  progressBarTrack: {
-    height: 10,
-    backgroundColor: '#20342a',
-    borderRadius: 6,
+  heroGoalSubtext: {
+    color: '#6e8579',
+    fontSize: 11,
+    marginTop: 2,
+    fontWeight: '600',
+  },
+
+  // Dopamine Risk Gauge
+  riskGaugeContainer: {
+    marginTop: 8,
+  },
+  riskGaugeHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 6,
+  },
+  riskGaugeLabel: {
+    color: '#6e8579',
+    fontSize: 11,
+    fontWeight: '800',
+    letterSpacing: 0.8,
+  },
+  riskGaugeStatusText: {
+    fontSize: 11,
+    fontWeight: '800',
+  },
+  textSafe: { color: '#38d39f' },
+  textWarning: { color: '#fbbf24' },
+  textDanger: { color: '#f87171' },
+
+  riskTrack: {
+    height: 9,
+    backgroundColor: '#1b2d24',
+    borderRadius: 5,
     overflow: 'hidden',
   },
-  progressBarFill: {
+  riskFill: {
     height: '100%',
-    borderRadius: 6,
+    borderRadius: 5,
   },
   progressBarNormal: {
     backgroundColor: '#38d39f',
@@ -1574,10 +1878,10 @@ const styles = StyleSheet.create({
   heroStatsGrid: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#1a2c24',
+    backgroundColor: '#162720',
     borderRadius: 14,
     paddingVertical: 12,
-    marginTop: 18,
+    marginTop: 16,
     borderWidth: 1,
     borderColor: 'rgba(56, 211, 159, 0.1)',
   },
@@ -1586,23 +1890,24 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   heroStatIcon: {
-    fontSize: 16,
+    fontSize: 15,
     marginBottom: 2,
   },
   heroStatValue: {
     color: '#f1f5f3',
-    fontSize: 15,
+    fontSize: 14,
     fontWeight: '800',
   },
   heroStatLabel: {
-    color: '#7a9184',
-    fontSize: 11,
+    color: '#6e8579',
+    fontSize: 10,
     marginTop: 2,
+    fontWeight: '600',
   },
   heroStatDivider: {
     width: 1,
-    height: 28,
-    backgroundColor: '#273e33',
+    height: 26,
+    backgroundColor: '#233a2e',
   },
 
   quickFocusActionBtn: {
@@ -1626,20 +1931,20 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'flex-start',
-    marginBottom: 14,
+    marginBottom: 12,
   },
   chartSubtitle: {
-    color: '#7a9184',
+    color: '#6e8579',
     fontSize: 12,
     marginTop: 2,
   },
   chartAvgBadge: {
-    backgroundColor: '#1e332a',
+    backgroundColor: '#1b2d24',
     borderRadius: 6,
     paddingHorizontal: 8,
     paddingVertical: 4,
     borderWidth: 1,
-    borderColor: '#2d473b',
+    borderColor: '#2b4437',
   },
   chartAvgBadgeText: {
     color: '#38d39f',
@@ -1658,19 +1963,27 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   barCountText: {
-    color: '#7a9184',
+    color: '#6e8579',
     fontSize: 10,
     fontWeight: '700',
     marginBottom: 4,
     minHeight: 14,
   },
+  barCountTextSelected: {
+    color: '#22d3ee',
+    fontWeight: '900',
+  },
   barTrack: {
     width: 22,
     height: 76,
-    backgroundColor: '#20342a',
+    backgroundColor: '#1a2c23',
     borderRadius: 7,
     justifyContent: 'flex-end',
     overflow: 'hidden',
+  },
+  barTrackSelected: {
+    borderWidth: 1,
+    borderColor: '#22d3ee',
   },
   barFill: {
     width: '100%',
@@ -1687,7 +2000,7 @@ const styles = StyleSheet.create({
     height: '8%',
   },
   barLabel: {
-    color: '#6e8579',
+    color: '#5b7367',
     fontSize: 11,
     fontWeight: '600',
     marginTop: 8,
@@ -1696,10 +2009,37 @@ const styles = StyleSheet.create({
     color: '#22d3ee',
     fontWeight: '800',
   },
+  barLabelSelected: {
+    color: '#22d3ee',
+  },
+
+  dayInsightCard: {
+    marginTop: 14,
+    backgroundColor: '#162720',
+    borderRadius: 12,
+    padding: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(34, 211, 238, 0.25)',
+  },
+  dayInsightTitle: {
+    color: '#22d3ee',
+    fontSize: 13,
+    fontWeight: '700',
+    marginBottom: 3,
+  },
+  dayInsightBody: {
+    color: '#a3b8ac',
+    fontSize: 12,
+    lineHeight: 17,
+  },
+  highlightText: {
+    color: '#f1f5f3',
+    fontWeight: '700',
+  },
 
   // Section Cards
   sectionCard: {
-    backgroundColor: '#14221c',
+    backgroundColor: '#111d17',
     borderColor: 'rgba(56, 211, 159, 0.12)',
     borderWidth: 1,
     borderRadius: 18,
@@ -1723,7 +2063,7 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   cardSubtitle: {
-    color: '#7a9184',
+    color: '#6e8579',
     fontSize: 13,
     lineHeight: 18,
     marginBottom: 16,
@@ -1733,7 +2073,7 @@ const styles = StyleSheet.create({
   platformCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#192b23',
+    backgroundColor: '#15251e',
     borderRadius: 14,
     padding: 14,
     marginBottom: 12,
@@ -1772,7 +2112,7 @@ const styles = StyleSheet.create({
   },
   platformTrack: {
     height: 7,
-    backgroundColor: '#23382f',
+    backgroundColor: '#1f342a',
     borderRadius: 4,
     overflow: 'hidden',
   },
@@ -1786,12 +2126,12 @@ const styles = StyleSheet.create({
     marginTop: 6,
   },
   platformTimeEstimate: {
-    color: '#7a9184',
+    color: '#6e8579',
     fontSize: 11,
     fontWeight: '500',
   },
   platformShareText: {
-    color: '#7a9184',
+    color: '#6e8579',
     fontSize: 11,
     fontWeight: '600',
   },
@@ -1807,7 +2147,7 @@ const styles = StyleSheet.create({
 
   // Tip Card
   tipCard: {
-    backgroundColor: '#142820',
+    backgroundColor: '#12231b',
     borderColor: 'rgba(56, 211, 159, 0.25)',
     borderWidth: 1,
     borderRadius: 14,
@@ -1828,7 +2168,7 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   tipText: {
-    color: '#a3b8ac',
+    color: '#9cb1a6',
     fontSize: 13,
     lineHeight: 19,
   },
@@ -1841,7 +2181,7 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
   tabScreenSubtitle: {
-    color: '#7a9184',
+    color: '#6e8579',
     fontSize: 14,
     lineHeight: 20,
     marginBottom: 20,
@@ -1855,10 +2195,10 @@ const styles = StyleSheet.create({
     flex: 1,
     marginHorizontal: 3,
     paddingVertical: 12,
-    backgroundColor: '#1b2c24',
+    backgroundColor: '#182b22',
     borderRadius: 12,
     alignItems: 'center',
-    borderColor: '#273f34',
+    borderColor: '#243e31',
     borderWidth: 1,
   },
   pillButtonSelected: {
@@ -1866,12 +2206,12 @@ const styles = StyleSheet.create({
     borderColor: '#38d39f',
   },
   pillButtonText: {
-    color: '#a3b8ac',
+    color: '#9cb1a6',
     fontSize: 13,
     fontWeight: '700',
   },
   pillButtonTextSelected: {
-    color: '#0c1311',
+    color: '#090e0c',
     fontWeight: '900',
   },
 
@@ -1879,19 +2219,19 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    backgroundColor: '#192b23',
+    backgroundColor: '#162720',
     borderRadius: 12,
     padding: 8,
     borderWidth: 1,
     borderColor: 'rgba(255, 255, 255, 0.05)',
   },
   stepperBtn: {
-    backgroundColor: '#233d31',
+    backgroundColor: '#1f382c',
     borderRadius: 8,
     paddingVertical: 8,
     paddingHorizontal: 16,
     borderWidth: 1,
-    borderColor: '#305242',
+    borderColor: '#2a4d3c',
   },
   stepperBtnText: {
     color: '#f1f5f3',
@@ -1923,7 +2263,7 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   toggleSubtitle: {
-    color: '#7a9184',
+    color: '#6e8579',
     fontSize: 12,
     marginTop: 2,
     lineHeight: 16,
@@ -1944,8 +2284,8 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(239, 68, 68, 0.4)',
   },
   badgeNormal: {
-    backgroundColor: '#1b2c24',
-    borderColor: '#2c4538',
+    backgroundColor: '#182b22',
+    borderColor: '#284336',
   },
   statusBadgeSmallText: {
     fontSize: 10,
@@ -1953,13 +2293,13 @@ const styles = StyleSheet.create({
     letterSpacing: 0.5,
   },
   textBlocked: { color: '#f87171' },
-  textNormal: { color: '#7a9184' },
+  textNormal: { color: '#6e8579' },
 
   switchTrack: {
     width: 48,
     height: 26,
     borderRadius: 13,
-    backgroundColor: '#273830',
+    backgroundColor: '#20342a',
     padding: 2,
     justifyContent: 'center',
   },
@@ -1978,7 +2318,7 @@ const styles = StyleSheet.create({
 
   // Focus Mode Screen
   focusHeroCard: {
-    backgroundColor: '#14221c',
+    backgroundColor: '#111d17',
     borderColor: 'rgba(56, 211, 159, 0.2)',
     borderWidth: 1,
     borderRadius: 22,
@@ -1993,7 +2333,7 @@ const styles = StyleSheet.create({
   },
   focusHeroCardActive: {
     borderColor: 'rgba(239, 68, 68, 0.5)',
-    backgroundColor: '#1c1818',
+    backgroundColor: '#1a1414',
   },
   focusHeaderRow: {
     flexDirection: 'row',
@@ -2018,15 +2358,15 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(239, 68, 68, 0.45)',
   },
   focusLiveBadgeIdle: {
-    backgroundColor: '#1d2c25',
-    borderColor: '#2c4238',
+    backgroundColor: '#172720',
+    borderColor: '#263d33',
   },
   focusLiveBadgeText: {
     fontSize: 11,
     fontWeight: '800',
   },
   focusLiveBadgeTextActive: { color: '#f87171' },
-  focusLiveBadgeTextIdle: { color: '#7a9184' },
+  focusLiveBadgeTextIdle: { color: '#6e8579' },
 
   focusTimerText: {
     color: '#f1f5f3',
@@ -2050,10 +2390,10 @@ const styles = StyleSheet.create({
   presetBtn: {
     paddingHorizontal: 16,
     paddingVertical: 8,
-    backgroundColor: '#1b2c24',
+    backgroundColor: '#182b22',
     borderRadius: 10,
     marginHorizontal: 4,
-    borderColor: '#2b4437',
+    borderColor: '#263f33',
     borderWidth: 1,
   },
   presetBtnActive: {
@@ -2061,12 +2401,12 @@ const styles = StyleSheet.create({
     borderColor: '#38d39f',
   },
   presetBtnText: {
-    color: '#a3b8ac',
+    color: '#9cb1a6',
     fontSize: 12,
     fontWeight: '700',
   },
   presetBtnTextActive: {
-    color: '#0c1311',
+    color: '#090e0c',
     fontWeight: '900',
   },
   focusButtonsRow: {
@@ -2089,21 +2429,21 @@ const styles = StyleSheet.create({
     backgroundColor: '#ef4444',
   },
   focusActionButtonText: {
-    color: '#0c1311',
+    color: '#090e0c',
     fontSize: 15,
     fontWeight: '800',
   },
   focusResetButton: {
     flex: 1,
-    backgroundColor: '#1f342a',
+    backgroundColor: '#1a2e24',
     borderRadius: 12,
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 1,
-    borderColor: '#2d4a3c',
+    borderColor: '#294537',
   },
   focusResetButtonText: {
-    color: '#a3b8ac',
+    color: '#9cb1a6',
     fontSize: 14,
     fontWeight: '600',
   },
@@ -2112,13 +2452,13 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
   },
   quickSelectBtn: {
-    backgroundColor: '#1f342a',
+    backgroundColor: '#1a2e24',
     paddingHorizontal: 10,
     paddingVertical: 4,
     borderRadius: 6,
     marginLeft: 6,
     borderWidth: 1,
-    borderColor: '#2b473a',
+    borderColor: '#294335',
   },
   quickSelectBtnText: {
     color: '#38d39f',
@@ -2130,7 +2470,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    backgroundColor: '#192b23',
+    backgroundColor: '#15251e',
     padding: 14,
     borderRadius: 12,
     marginBottom: 10,
@@ -2177,7 +2517,7 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   healthDesc: {
-    color: '#7a9184',
+    color: '#6e8579',
     fontSize: 12,
     marginTop: 2,
     lineHeight: 16,
@@ -2190,7 +2530,7 @@ const styles = StyleSheet.create({
     marginTop: 8,
   },
   settingsActionBtnText: {
-    color: '#0c1311',
+    color: '#090e0c',
     fontSize: 14,
     fontWeight: '800',
   },
@@ -2204,14 +2544,14 @@ const styles = StyleSheet.create({
     marginRight: 8,
   },
   secondaryOutlineBtn: {
-    borderColor: '#2b4438',
+    borderColor: '#243a2f',
     borderWidth: 1,
     paddingVertical: 13,
     borderRadius: 12,
     alignItems: 'center',
   },
   secondaryOutlineBtnText: {
-    color: '#a3b8ac',
+    color: '#9cb1a6',
     fontSize: 14,
     fontWeight: '600',
   },
@@ -2229,13 +2569,13 @@ const styles = StyleSheet.create({
     marginVertical: 18,
   },
   footerVersion: {
-    color: '#556b60',
+    color: '#4e6258',
     fontSize: 12,
     fontWeight: '700',
     letterSpacing: 0.5,
   },
   footerTagline: {
-    color: '#42544b',
+    color: '#3c4c44',
     fontSize: 11,
     marginTop: 3,
   },
@@ -2247,7 +2587,7 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     height: 72,
-    backgroundColor: '#0f1a16',
+    backgroundColor: '#0c1411',
     borderTopColor: 'rgba(56, 211, 159, 0.12)',
     borderTopWidth: 1,
     flexDirection: 'row',
@@ -2270,7 +2610,7 @@ const styles = StyleSheet.create({
     marginBottom: 3,
   },
   tabLabel: {
-    color: '#657e71',
+    color: '#5b7367',
     fontSize: 11,
     fontWeight: '600',
   },
@@ -2288,7 +2628,7 @@ const styles = StyleSheet.create({
     width: 68,
     height: 68,
     borderRadius: 34,
-    backgroundColor: '#1b3327',
+    backgroundColor: '#172c21',
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: 14,
@@ -2321,7 +2661,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 6,
   },
   onboardingHighlights: {
-    backgroundColor: '#14221c',
+    backgroundColor: '#111d17',
     borderRadius: 16,
     padding: 16,
     marginBottom: 18,
@@ -2347,13 +2687,13 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   highlightDesc: {
-    color: '#7a9184',
+    color: '#6e8579',
     fontSize: 12,
     marginTop: 2,
     lineHeight: 16,
   },
   statusSection: {
-    backgroundColor: '#14221c',
+    backgroundColor: '#111d17',
     borderColor: 'rgba(56, 211, 159, 0.12)',
     borderRadius: 16,
     borderWidth: 1,
@@ -2374,15 +2714,66 @@ const styles = StyleSheet.create({
     borderWidth: 1,
   },
   statusBadgeInactive: {
-    backgroundColor: '#1e2823',
-    borderColor: '#384841',
+    backgroundColor: '#19241f',
+    borderColor: '#303f37',
     borderWidth: 1,
   },
   statusBadgeText: { fontSize: 13, fontWeight: '700' },
   statusBadgeTextActive: { color: '#4cd964' },
   statusBadgeTextInactive: { color: '#8aa395' },
-  body: { color: '#a3b8ac', fontSize: 14, lineHeight: 21, marginTop: 8 },
-  statusHint: { color: '#688072', fontSize: 12, lineHeight: 17, marginTop: 8 },
+  body: { color: '#9cb1a6', fontSize: 14, lineHeight: 21, marginTop: 8 },
+  statusHint: { color: '#5b7367', fontSize: 12, lineHeight: 17, marginTop: 8 },
+  connectedCard: {
+    backgroundColor: '#0f2319',
+    borderColor: 'rgba(56, 211, 159, 0.45)',
+    borderWidth: 1.5,
+    borderRadius: 16,
+    padding: 16,
+    marginBottom: 16,
+  },
+  connectedHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  connectedCheckBadge: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: '#38d39f',
+    color: '#090e0c',
+    fontSize: 18,
+    fontWeight: '900',
+    textAlign: 'center',
+    lineHeight: 32,
+    marginRight: 10,
+  },
+  connectedHeaderTextWrap: {
+    flex: 1,
+  },
+  connectedHeaderTitle: {
+    color: '#f1f5f3',
+    fontSize: 16,
+    fontWeight: '800',
+  },
+  connectedHeaderSubtitle: {
+    color: '#9cb1a6',
+    fontSize: 12,
+    marginTop: 2,
+    lineHeight: 16,
+  },
+  primaryLaunchButton: {
+    backgroundColor: '#38d39f',
+    borderRadius: 12,
+    paddingVertical: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  primaryLaunchButtonText: {
+    color: '#090e0c',
+    fontSize: 15,
+    fontWeight: '800',
+  },
   consentRow: {
     alignItems: 'flex-start',
     flexDirection: 'row',
@@ -2402,7 +2793,7 @@ const styles = StyleSheet.create({
   },
   checkboxChecked: { backgroundColor: '#38d39f' },
   checkmark: {
-    color: '#0c1311',
+    color: '#090e0c',
     fontSize: 16,
     fontWeight: '900',
     lineHeight: 19,
@@ -2417,15 +2808,15 @@ const styles = StyleSheet.create({
     minHeight: 52,
     paddingHorizontal: 16,
   },
-  buttonDisabled: { backgroundColor: '#21332a' },
+  buttonDisabled: { backgroundColor: '#1d2e25' },
   buttonText: {
-    color: '#0c1311',
+    color: '#090e0c',
     fontSize: 15,
     fontWeight: '800',
     textAlign: 'center',
   },
   settingsHint: {
-    color: '#688072',
+    color: '#5b7367',
     fontSize: 12,
     lineHeight: 17,
     marginTop: 10,
@@ -2445,6 +2836,106 @@ const styles = StyleSheet.create({
   enterDashboardButtonText: {
     color: '#38d39f',
     fontSize: 15,
+    fontWeight: '700',
+  },
+
+  // Mindful Breathing Modal Styles
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.85)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 24,
+  },
+  breatheModalCard: {
+    width: '100%',
+    backgroundColor: '#111d17',
+    borderRadius: 24,
+    padding: 24,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(34, 211, 238, 0.3)',
+  },
+  breatheModalEyebrow: {
+    color: '#22d3ee',
+    fontSize: 11,
+    fontWeight: '800',
+    letterSpacing: 1.5,
+  },
+  breatheModalTitle: {
+    color: '#f1f5f3',
+    fontSize: 22,
+    fontWeight: '900',
+    marginTop: 4,
+  },
+  breatheModalDesc: {
+    color: '#8aa395',
+    fontSize: 13,
+    textAlign: 'center',
+    lineHeight: 18,
+    marginTop: 6,
+    marginBottom: 20,
+  },
+  breatheVisualWrap: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginVertical: 14,
+  },
+  breatheRingOuter: {
+    width: 180,
+    height: 180,
+    borderRadius: 90,
+    borderWidth: 6,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  breatheRingInhale: {
+    borderColor: '#34d399',
+    backgroundColor: 'rgba(52, 211, 153, 0.08)',
+  },
+  breatheRingHold: {
+    borderColor: '#22d3ee',
+    backgroundColor: 'rgba(34, 211, 238, 0.1)',
+  },
+  breatheRingExhale: {
+    borderColor: '#a78bfa',
+    backgroundColor: 'rgba(167, 139, 250, 0.08)',
+  },
+  breatheRingInner: {
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  breathePhaseText: {
+    color: '#f1f5f3',
+    fontSize: 24,
+    fontWeight: '900',
+    letterSpacing: 0.5,
+  },
+  breatheCycleCount: {
+    color: '#9cb1a6',
+    fontSize: 16,
+    fontWeight: '700',
+    marginTop: 4,
+  },
+  breatheRemainingText: {
+    color: '#6e8579',
+    fontSize: 12,
+    fontWeight: '600',
+    marginTop: 14,
+    marginBottom: 18,
+  },
+  breatheCloseBtn: {
+    width: '100%',
+    paddingVertical: 13,
+    backgroundColor: '#1b2d24',
+    borderRadius: 12,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#2b473a',
+  },
+  breatheCloseBtnText: {
+    color: '#9cb1a6',
+    fontSize: 14,
     fontWeight: '700',
   },
 });

@@ -128,6 +128,16 @@ class ReelCountPreferences private constructor(context: Context) {
     return result
   }
 
+  // --- Onboarding Status ---
+
+  fun isOnboardingCompleted(): Boolean {
+    return prefs.getBoolean(KEY_ONBOARDING_COMPLETED, false)
+  }
+
+  fun setOnboardingCompleted(completed: Boolean) {
+    prefs.edit().putBoolean(KEY_ONBOARDING_COMPLETED, completed).apply()
+  }
+
   // --- HUD Screen Position Memory ---
 
   fun saveHudPosition(x: Int, y: Int) {
@@ -151,6 +161,7 @@ class ReelCountPreferences private constructor(context: Context) {
     private const val KEY_BLOCKED_PACKAGES = "blocked_packages"
     private const val KEY_DAILY_SHORT_LIMIT = "daily_short_limit"
     private const val KEY_DAILY_TIME_LIMIT_MIN = "daily_time_limit_min"
+    private const val KEY_ONBOARDING_COMPLETED = "onboarding_completed"
     private const val KEY_HUD_X = "hud_pos_x"
     private const val KEY_HUD_Y = "hud_pos_y"
 

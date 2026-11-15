@@ -43,8 +43,19 @@ class PrototypeSettingsModule(context: ReactApplicationContext) : ReactContextBa
       putInt("focusRemainingSeconds", focusRemainingSec.toInt())
       putInt("dailyShortLimit", prefs.getDailyShortLimit())
       putInt("dailyTimeLimitMinutes", prefs.getDailyTimeLimitMinutes())
+      putBoolean("onboardingCompleted", prefs.isOnboardingCompleted())
     }
     promise.resolve(result)
+  }
+
+  @ReactMethod
+  fun setOnboardingCompleted(completed: Boolean, promise: Promise) {
+    try {
+      prefs.setOnboardingCompleted(completed)
+      promise.resolve(true)
+    } catch (e: Exception) {
+      promise.reject("ONBOARDING_ERROR", e.message, e)
+    }
   }
 
   @ReactMethod
