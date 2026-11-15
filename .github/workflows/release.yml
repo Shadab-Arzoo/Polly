@@ -36,9 +36,6 @@ jobs:
           distribution: temurin
           java-version: 17
 
-      - name: Setup Android SDK
-        uses: android-actions/setup-android@v3
-
       - name: Make Gradlew Executable
         run: chmod +x android/gradlew
 
@@ -74,8 +71,8 @@ jobs:
           - **Custom App Icon**: Fresh emerald film-reel icon across all Android device resolutions.
 
           ### 📥 Download & Installation Notes:
-          1. Download the attached **`${RELEASE_APK}`** below to your Android device.
-          2. Tap the APK to install.
+          1. Download the attached **`${RELEASE_APK}`** below directly to your Android phone.
+          2. Tap the downloaded APK to install.
           3. **If Google Play Protect displays "App Blocked"**:
              - Because ReelCount uses Android's Accessibility Service to detect video scrolling, Play Protect flags sideloaded APKs by default.
              - Tap **"More details"** (or dropdown arrow) → tap **"Install anyway"**.
