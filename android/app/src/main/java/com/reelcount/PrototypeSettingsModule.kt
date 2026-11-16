@@ -147,6 +147,35 @@ class PrototypeSettingsModule(context: ReactApplicationContext) : ReactContextBa
   }
 
   @ReactMethod
+  fun playSoundscape(soundscape: String, durationMinutes: Int, promise: Promise) {
+    try {
+      com.reelcount.soundscape.ProceduralSoundscapePlayer.play(soundscape)
+      promise.resolve(true)
+    } catch (e: Exception) {
+      promise.reject("SOUNDSCAPE_ERROR", e.message, e)
+    }
+  }
+
+  @ReactMethod
+  fun stopSoundscape(promise: Promise) {
+    try {
+      com.reelcount.soundscape.ProceduralSoundscapePlayer.stop()
+      promise.resolve(true)
+    } catch (e: Exception) {
+      promise.reject("SOUNDSCAPE_ERROR", e.message, e)
+    }
+  }
+
+  @ReactMethod
+  fun isSoundscapePlaying(promise: Promise) {
+    try {
+      promise.resolve(com.reelcount.soundscape.ProceduralSoundscapePlayer.isAudioPlaying())
+    } catch (e: Exception) {
+      promise.reject("SOUNDSCAPE_ERROR", e.message, e)
+    }
+  }
+
+  @ReactMethod
   fun getDailyHistory(promise: Promise) {
     try {
       val history = prefs.get7DayHistory()

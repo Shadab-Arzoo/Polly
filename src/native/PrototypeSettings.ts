@@ -49,6 +49,9 @@ type PrototypeSettingsModule = {
   ): Promise<boolean>;
   setDoomscrollAlert(enabled: boolean): Promise<boolean>;
   setBreakReminder(enabled: boolean): Promise<boolean>;
+  playSoundscape(soundscape: string, durationMinutes: number): Promise<boolean>;
+  stopSoundscape(): Promise<boolean>;
+  isSoundscapePlaying(): Promise<boolean>;
 };
 
 const { PrototypeSettings } = NativeModules as {
@@ -157,5 +160,26 @@ export default {
       return Promise.resolve(false);
     }
     return PrototypeSettings.setBreakReminder(enabled);
+  },
+  playSoundscape(
+    soundscape: string,
+    durationMinutes: number = 25,
+  ): Promise<boolean> {
+    if (!PrototypeSettings?.playSoundscape) {
+      return Promise.resolve(false);
+    }
+    return PrototypeSettings.playSoundscape(soundscape, durationMinutes);
+  },
+  stopSoundscape(): Promise<boolean> {
+    if (!PrototypeSettings?.stopSoundscape) {
+      return Promise.resolve(false);
+    }
+    return PrototypeSettings.stopSoundscape();
+  },
+  isSoundscapePlaying(): Promise<boolean> {
+    if (!PrototypeSettings?.isSoundscapePlaying) {
+      return Promise.resolve(false);
+    }
+    return PrototypeSettings.isSoundscapePlaying();
   },
 };

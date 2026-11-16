@@ -53,6 +53,7 @@ class ReelCountAccessibilityService : AccessibilityService() {
 
     createNotificationChannels()
     PrototypeRuntimeStatus.connected(prefs)
+    updateAmbientStatusNotification()
 
     if (overlayHud == null) {
       overlayHud = ReelCountOverlayHud(this)
@@ -165,6 +166,7 @@ class ReelCountAccessibilityService : AccessibilityService() {
 
       // Update HUD overlay
       overlayHud?.updateCount(appLabel, currentPkgCount, isLimitHit)
+      updateAmbientStatusNotification()
 
       // Doomscroll Vortex Alert: 15+ consecutive shorts in a single session
       if (prefs.isDoomscrollAlertEnabled() && consecutiveShortsInApp >= 15 && (consecutiveShortsInApp % 10 == 5)) {
@@ -195,7 +197,7 @@ class ReelCountAccessibilityService : AccessibilityService() {
 
   private fun createNotificationChannels() {
     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-      val channel = NotificationChannel(
+      val alertChannel = NotificationChannel(
         CHANNEL_ID,
         "ReelCount Alerts",
         NotificationManager.IMPORTANCE_HIGH
@@ -203,8 +205,56 @@ class ReelCountAccessibilityService : AccessibilityService() {
         description = "Daily limits, Doomscroll alerts, and Focus Mode reminders"
         enableVibration(true)
       }
-      notificationManager?.createNotificationChannel(channel)
+      val statusChannel = NotificationChannel(
+        CHANNEL_STATUS_ID,
+        "ReelCount Ambient Status",
+        NotificationManager.IMPORTANCE_LOW
+      ).apply {
+        description = "Live scroll counter & quick Focus button in notification shade"
+        enableVibration(false)
+        setShowBadge(false)
+      }
+      notificationManager?.createNotificationChannel(alertChannel)
+      notificationManager?.createNotificationChannel(statusChannel)
     }
+  }
+
+  private fun updateAmbientStatusNotification() {
+    val nm = notificationManager ?: return
+    val total = prefs.getTodayCount()
+    val limit = prefs.getDailyShortLimit()
+    val percent = if (limit > 0) Math.min(100, (total * 100) / limit) else 0
+    val launchPendingIntent = getLaunchPendingIntent()
+
+    val focusIntent = Intent(this, com.reelcount.quicksettings.NotificationActionReceiver::class.java).apply {
+      action = com.reelcount.quicksettings.NotificationActionReceiver.ACTION_START_FOCUS
+    }
+    val focusFlags = PendingIntent.FLAG_UPDATE_CURRENT or
+      (if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) PendingIntent.FLAG_IMMUTABLE else 0)
+    val focusPendingIntent = PendingIntent.getBroadcast(this, 201, focusIntent, focusFlags)
+
+    try {
+      if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+        val builder = android.app.Notification.Builder(this, CHANNEL_STATUS_ID)
+          .setContentTitle("🎬 ReelCount: $total / $limit Shorts ($percent%)")
+          .setContentText("Tap to open Dashboard · Stay mindful")
+          .setSmallIcon(android.R.drawable.ic_menu_compass)
+          .setOngoing(true)
+          .setAutoCancel(false)
+
+        if (launchPendingIntent != null) {
+          builder.setContentIntent(launchPendingIntent)
+        }
+
+        builder.addAction(
+          android.R.drawable.ic_lock_idle_lock,
+          "⚡ Focus 15m",
+          focusPendingIntent
+        )
+
+        nm.notify(NOTIFICATION_STATUS_ID, builder.build())
+      }
+    } catch (_: Exception) {}
   }
 
   private fun getLaunchPendingIntent(): PendingIntent? {
@@ -322,6 +372,9 @@ class ReelCountAccessibilityService : AccessibilityService() {
     PrototypeRuntimeStatus.disconnected()
     overlayHud?.hide()
     currentActivePackage = null
+    try {
+      notificationManager?.cancel(NOTIFICATION_STATUS_ID)
+    } catch (_: Exception) {}
   }
 
   private fun clearIdleTrace() {
@@ -334,7 +387,9 @@ class ReelCountAccessibilityService : AccessibilityService() {
     const val MAX_TRACE_EVENTS = 32
     const val TRACE_IDLE_TIMEOUT_MS = 2_000L
     const val CHANNEL_ID = "reelcount_alerts"
+    const val CHANNEL_STATUS_ID = "reelcount_status"
     const val NOTIFICATION_LIMIT_ID = 1001
     const val NOTIFICATION_DOOMSCROLL_ID = 1002
+    const val NOTIFICATION_STATUS_ID = 1003
   }
 }

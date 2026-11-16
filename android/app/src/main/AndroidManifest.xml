@@ -38,5 +38,24 @@
           android:name="android.accessibilityservice"
           android:resource="@xml/reelcount_accessibility_service" />
       </service>
+      <service
+        android:name=".quicksettings.FocusTileService"
+        android:icon="@mipmap/ic_launcher"
+        android:label="ReelCount Focus"
+        android:permission="android.permission.BIND_QUICK_SETTINGS_TILE"
+        android:exported="true">
+        <intent-filter>
+          <action android:name="android.service.quicksettings.action.QS_TILE" />
+        </intent-filter>
+      </service>
+
+      <receiver
+        android:name=".quicksettings.NotificationActionReceiver"
+        android:exported="false">
+        <intent-filter>
+          <action android:name="com.reelcount.action.START_FOCUS" />
+          <action android:name="com.reelcount.action.STOP_FOCUS" />
+        </intent-filter>
+      </receiver>
     </application>
 </manifest>

@@ -244,6 +244,16 @@ function App() {
     setShowCravingModal(true);
   };
 
+  const toggleSoundscapeAudio = (targetPlaying?: boolean, soundscapeType: FocusSoundscape = soundscape) => {
+    const nextPlaying = targetPlaying !== undefined ? targetPlaying : !soundscapePlaying;
+    setSoundscapePlaying(nextPlaying);
+    if (nextPlaying) {
+      PrototypeSettings.playSoundscape(soundscapeType, soundscapeDurationMins).catch(() => {});
+    } else {
+      PrototypeSettings.stopSoundscape().catch(() => {});
+    }
+  };
+
   const continueToSettings = async () => {
     if (!consentGiven) {
       return;
@@ -2281,7 +2291,7 @@ function App() {
         <View style={styles.cardHeaderWithAction}>
           <Text style={styles.cardSectionTitle}>🎧 Focus Soundscapes</Text>
           <Pressable
-            onPress={() => setSoundscapePlaying(prev => !prev)}
+            onPress={() => toggleSoundscapeAudio()}
             style={styles.soundscapeToggleBtn}
           >
             <Text style={styles.soundscapeToggleBtnText}>
@@ -2298,7 +2308,7 @@ function App() {
               key={sItem.id}
               onPress={() => {
                 setSoundscape(sItem.id);
-                setSoundscapePlaying(true);
+                toggleSoundscapeAudio(true, sItem.id);
               }}
               style={[
                 styles.soundscapeCard,
@@ -2335,7 +2345,12 @@ function App() {
           {[15, 25, 45, 60].map(mins => (
             <Pressable
               key={mins}
-              onPress={() => setSoundscapeDurationMins(mins)}
+              onPress={() => {
+                setSoundscapeDurationMins(mins);
+                if (soundscapePlaying) {
+                  PrototypeSettings.playSoundscape(soundscape, mins).catch(() => {});
+                }
+              }}
               style={[
                 styles.soundscapeDurationBtn,
                 soundscapeDurationMins === mins && styles.soundscapeDurationBtnActive,
@@ -2352,7 +2367,7 @@ function App() {
             </Pressable>
           ))}
           <Pressable
-            onPress={() => setSoundscapePlaying(!soundscapePlaying)}
+            onPress={() => toggleSoundscapeAudio()}
             style={styles.soundscapePlayToggleBtn}
           >
             <Text style={styles.soundscapePlayToggleText}>
