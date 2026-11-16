@@ -96,6 +96,11 @@ jobs:
               f.write(notes)
           PYEOF
 
-          gh release create "$VERSION" "$RELEASE_APK" \
-            --title "$RELEASE_TITLE" \
-            --notes-file release_notes.md
+          if gh release view "$VERSION" >/dev/null 2>&1; then
+            echo "Release $VERSION already exists. Updating asset..."
+            gh release upload "$VERSION" "$RELEASE_APK" --clobber
+          else
+            gh release create "$VERSION" "$RELEASE_APK" \
+              --title "$RELEASE_TITLE" \
+              --notes-file release_notes.md
+          fi
