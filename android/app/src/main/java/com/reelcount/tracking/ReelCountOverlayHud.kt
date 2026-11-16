@@ -184,16 +184,62 @@ class ReelCountOverlayHud(private val context: Context) {
     iconView = icon
   }
 
+  private var speedbumpActive = false
+
   fun show(appLabel: String, count: Int, limitReached: Boolean = false) {
     handler.post {
       ensureAttached()
       currentAppLabel = appLabel
       currentAppCount = count
       isCurrentLimitReached = limitReached
-      applyHudStyleVisibility(limitReached)
-      updateContent(appLabel, count, limitReached)
-      pulse()
+
+      if (prefs.isSpeedbumpEnabled()) {
+        triggerSpeedbump(appLabel, count, limitReached)
+      } else {
+        applyHudStyleVisibility(limitReached)
+        updateContent(appLabel, count, limitReached)
+        pulse()
+      }
     }
+  }
+
+  private fun triggerSpeedbump(appLabel: String, count: Int, limitReached: Boolean) {
+    speedbumpActive = true
+    hudView?.visibility = View.VISIBLE
+    isVisible = true
+
+    iconView?.visibility = View.VISIBLE
+    titleView?.visibility = View.VISIBLE
+    iconView?.text = "🌿 "
+    titleView?.text = "Pause & Breathe: "
+    titleView?.setTextColor(Color.parseColor("#38D39F"))
+    counterView?.text = "3s"
+    counterView?.setTextColor(Color.parseColor("#A7F3D0"))
+    backgroundDrawable?.setStroke(dpToPx(2), Color.parseColor("#38D39F"))
+    pulse()
+
+    handler.postDelayed({
+      if (speedbumpActive) {
+        counterView?.text = "2s"
+        pulse()
+      }
+    }, 1000L)
+
+    handler.postDelayed({
+      if (speedbumpActive) {
+        counterView?.text = "1s"
+        pulse()
+      }
+    }, 2000L)
+
+    handler.postDelayed({
+      if (speedbumpActive) {
+        speedbumpActive = false
+        applyHudStyleVisibility(limitReached)
+        updateContent(appLabel, count, limitReached)
+        pulse()
+      }
+    }, 3000L)
   }
 
   fun updateCount(appLabel: String, count: Int, limitReached: Boolean = false) {
@@ -202,6 +248,7 @@ class ReelCountOverlayHud(private val context: Context) {
       currentAppLabel = appLabel
       currentAppCount = count
       isCurrentLimitReached = limitReached
+      speedbumpActive = false
       applyHudStyleVisibility(limitReached)
       updateContent(appLabel, count, limitReached)
       pulse()

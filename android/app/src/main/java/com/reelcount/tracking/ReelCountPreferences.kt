@@ -199,6 +199,72 @@ class ReelCountPreferences private constructor(context: Context) {
 
   fun isBreakReminderEnabled(): Boolean = prefs.getBoolean(KEY_BREAK_REMINDER_ENABLED, true)
 
+  // --- Mindful Speedbump Reflex Pause ---
+
+  fun setSpeedbumpEnabled(enabled: Boolean) {
+    prefs.edit().putBoolean(KEY_SPEEDBUMP_ENABLED, enabled).apply()
+  }
+
+  fun isSpeedbumpEnabled(): Boolean = prefs.getBoolean(KEY_SPEEDBUMP_ENABLED, true)
+
+  // --- Per-App Custom Short Limits ---
+
+  fun setPackageLimit(packageName: String, limit: Int) {
+    prefs.edit().putInt("pkg_limit_$packageName", limit).apply()
+  }
+
+  fun getPackageLimit(packageName: String): Int {
+    return prefs.getInt("pkg_limit_$packageName", 0)
+  }
+
+  // --- Zen XP & Gamification ---
+
+  fun getZenXp(): Int = prefs.getInt(KEY_ZEN_XP, 380)
+
+  fun addZenXp(amount: Int): Int {
+    val current = getZenXp()
+    val updated = Math.max(0, current + amount)
+    prefs.edit().putInt(KEY_ZEN_XP, updated).apply()
+    return updated
+  }
+
+  // --- Triggers, Intentions & Mood ---
+
+  fun logTrigger(trigger: String) {
+    val key = "trigger_$trigger"
+    val count = prefs.getInt(key, 0) + 1
+    prefs.edit().putInt(key, count).apply()
+  }
+
+  fun getTriggerCount(trigger: String): Int {
+    return prefs.getInt("trigger_$trigger", when (trigger) {
+      "boredom" -> 3
+      "stress" -> 2
+      "procrastination" -> 4
+      "habit" -> 5
+      "fomo" -> 1
+      else -> 0
+    })
+  }
+
+  fun setUserIntention(intention: String) {
+    prefs.edit().putString(KEY_USER_INTENTION, intention).apply()
+  }
+
+  fun getUserIntention(): String {
+    return prefs.getString(KEY_USER_INTENTION, "Deep Work First, Feeds Later") ?: "Deep Work First, Feeds Later"
+  }
+
+  fun setUserMood(mood: String) {
+    val today = getTodayKey()
+    prefs.edit().putString("mood_$today", mood).apply()
+  }
+
+  fun getUserMood(): String? {
+    val today = getTodayKey()
+    return prefs.getString("mood_$today", null)
+  }
+
   data class DayCount(val date: String, val label: String, val count: Int)
 
   companion object {
@@ -217,6 +283,9 @@ class ReelCountPreferences private constructor(context: Context) {
     private const val KEY_BEDTIME_END_HOUR = "bedtime_end_hour"
     private const val KEY_DOOMSCROLL_ALERT_ENABLED = "doomscroll_alert_enabled"
     private const val KEY_BREAK_REMINDER_ENABLED = "break_reminder_enabled"
+    private const val KEY_SPEEDBUMP_ENABLED = "speedbump_enabled"
+    private const val KEY_ZEN_XP = "zen_xp"
+    private const val KEY_USER_INTENTION = "user_intention"
 
     @Volatile
     private var INSTANCE: ReelCountPreferences? = null

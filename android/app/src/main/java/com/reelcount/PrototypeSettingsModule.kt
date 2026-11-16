@@ -57,6 +57,19 @@ class PrototypeSettingsModule(context: ReactApplicationContext) : ReactContextBa
       putBoolean("bedtimeShieldActive", prefs.isBedtimeShieldActive())
       putBoolean("doomscrollAlertEnabled", prefs.isDoomscrollAlertEnabled())
       putBoolean("breakReminderEnabled", prefs.isBreakReminderEnabled())
+      putBoolean("speedbumpEnabled", prefs.isSpeedbumpEnabled())
+      putInt("zenXp", prefs.getZenXp())
+      putString("userIntention", prefs.getUserIntention())
+      putString("userMood", prefs.getUserMood() ?: "")
+      putInt("triggerBoredom", prefs.getTriggerCount("boredom"))
+      putInt("triggerStress", prefs.getTriggerCount("stress"))
+      putInt("triggerProcrastination", prefs.getTriggerCount("procrastination"))
+      putInt("triggerHabit", prefs.getTriggerCount("habit"))
+      putInt("triggerFomo", prefs.getTriggerCount("fomo"))
+      putInt("instagramLimit", prefs.getPackageLimit(TargetPackages.INSTAGRAM))
+      putInt("tiktokLimit", prefs.getPackageLimit(TargetPackages.TIKTOK))
+      putInt("youtubeLimit", prefs.getPackageLimit(TargetPackages.YOUTUBE))
+      putInt("snapchatLimit", prefs.getPackageLimit(TargetPackages.SNAPCHAT))
     }
     promise.resolve(result)
   }
@@ -172,6 +185,66 @@ class PrototypeSettingsModule(context: ReactApplicationContext) : ReactContextBa
       promise.resolve(com.reelcount.soundscape.ProceduralSoundscapePlayer.isAudioPlaying())
     } catch (e: Exception) {
       promise.reject("SOUNDSCAPE_ERROR", e.message, e)
+    }
+  }
+
+  @ReactMethod
+  fun setSpeedbumpEnabled(enabled: Boolean, promise: Promise) {
+    try {
+      prefs.setSpeedbumpEnabled(enabled)
+      promise.resolve(true)
+    } catch (e: Exception) {
+      promise.reject("SPEEDBUMP_ERROR", e.message, e)
+    }
+  }
+
+  @ReactMethod
+  fun setPackageLimit(packageName: String, limit: Int, promise: Promise) {
+    try {
+      prefs.setPackageLimit(packageName, limit)
+      promise.resolve(true)
+    } catch (e: Exception) {
+      promise.reject("PACKAGE_LIMIT_ERROR", e.message, e)
+    }
+  }
+
+  @ReactMethod
+  fun addZenXp(amount: Int, promise: Promise) {
+    try {
+      val newXp = prefs.addZenXp(amount)
+      promise.resolve(newXp)
+    } catch (e: Exception) {
+      promise.reject("ZEN_XP_ERROR", e.message, e)
+    }
+  }
+
+  @ReactMethod
+  fun logTrigger(trigger: String, promise: Promise) {
+    try {
+      prefs.logTrigger(trigger)
+      promise.resolve(prefs.getTriggerCount(trigger))
+    } catch (e: Exception) {
+      promise.reject("TRIGGER_ERROR", e.message, e)
+    }
+  }
+
+  @ReactMethod
+  fun setUserIntention(intention: String, promise: Promise) {
+    try {
+      prefs.setUserIntention(intention)
+      promise.resolve(true)
+    } catch (e: Exception) {
+      promise.reject("INTENTION_ERROR", e.message, e)
+    }
+  }
+
+  @ReactMethod
+  fun setUserMood(mood: String, promise: Promise) {
+    try {
+      prefs.setUserMood(mood)
+      promise.resolve(true)
+    } catch (e: Exception) {
+      promise.reject("MOOD_ERROR", e.message, e)
     }
   }
 

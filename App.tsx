@@ -4,6 +4,7 @@ import {
   Modal,
   Pressable,
   ScrollView,
+  Share,
   StatusBar,
   StyleSheet,
   Text,
@@ -39,6 +40,7 @@ function App() {
   const [breakReminder, setBreakReminder] = useState(true);
   const [doomscrollAlert, setDoomscrollAlert] = useState(true);
   const [bedtimeShield, setBedtimeShield] = useState(false);
+  const [speedbumpEnabled, setSpeedbumpEnabled] = useState(true);
   const [weeklyRecapAlert, setWeeklyRecapAlert] = useState(true);
   const [hudStyle, setHudStyle] = useState<HudStyle>('pill');
   const [themeAccent, setThemeAccent] = useState<ThemeAccent>('emerald');
@@ -141,6 +143,27 @@ function App() {
             if (status.breakReminderEnabled !== undefined) {
               setBreakReminder(status.breakReminderEnabled);
             }
+            if (status.speedbumpEnabled !== undefined) {
+              setSpeedbumpEnabled(status.speedbumpEnabled);
+            }
+            if (status.zenXp !== undefined) {
+              setZenXp(status.zenXp);
+            }
+            if (status.userIntention) {
+              setSelectedIntention(status.userIntention);
+            }
+            if (status.userMood) {
+              setTodayMood(status.userMood as UserMood);
+            }
+            if (status.triggerBoredom !== undefined) {
+              setTriggersLog({
+                boredom: status.triggerBoredom ?? 3,
+                stress: status.triggerStress ?? 2,
+                procrastination: status.triggerProcrastination ?? 4,
+                habit: status.triggerHabit ?? 5,
+                fomo: status.triggerFomo ?? 1,
+              });
+            }
             if (status.onboardingCompleted && !hasManuallyOpenedIntro) {
               setShowIntro(false);
             }
@@ -242,6 +265,18 @@ function App() {
   const openCravingModal = (tab: CravingTab = 'breathing') => {
     setCravingTab(tab);
     setShowCravingModal(true);
+  };
+
+  const shareMindfulProgress = async () => {
+    try {
+      const text =
+        `🎬 ReelCount Mindful Habit Summary:\n` +
+        `🔥 ${mindfulStreak}-Day Mindful Streak\n` +
+        `⏱️ ${estMinutes}m watched today · ~${timeSavedMins}m saved beyond screen\n` +
+        `🧘 Attention Mastery: ${zenXp} Zen XP\n` +
+        `Take control of short-form doomscrolling with ReelCount!`;
+      await Share.share({ message: text });
+    } catch {}
   };
 
   const toggleSoundscapeAudio = (targetPlaying?: boolean, soundscapeType: FocusSoundscape = soundscape) => {
@@ -751,7 +786,8 @@ function App() {
   const handleLogTrigger = (t: TriggerType) => {
     setTriggersLog(prev => ({ ...prev, [t]: prev[t] + 1 }));
     setSelectedTrigger(t);
-    setZenXp(prev => prev + 10);
+    PrototypeSettings.logTrigger(t).catch(() => {});
+    PrototypeSettings.addZenXp(10).then(setZenXp).catch(() => {});
     Alert.alert(
       `${TRIGGER_DATA[t].icon} Impulse Acknowledged (+10 XP)`,
       TRIGGER_DATA[t].advice,
@@ -1022,7 +1058,10 @@ function App() {
           {intentionsList.map(item => (
             <Pressable
               key={item.id}
-              onPress={() => setSelectedIntention(item.title)}
+              onPress={() => {
+                setSelectedIntention(item.title);
+                PrototypeSettings.setUserIntention(item.title).catch(() => {});
+              }}
               style={[
                 styles.intentionPill,
                 selectedIntention === item.title && styles.intentionPillSelected,
@@ -1772,7 +1811,10 @@ function App() {
           {moodsList.map(moodItem => (
             <Pressable
               key={moodItem.id}
-              onPress={() => setTodayMood(moodItem.id)}
+              onPress={() => {
+                setTodayMood(moodItem.id);
+                PrototypeSettings.setUserMood(moodItem.id).catch(() => {});
+              }}
               style={[
                 styles.moodCard,
                 todayMood === moodItem.id && styles.moodCardSelected,
@@ -1936,6 +1978,32 @@ function App() {
       {/* Smart Alerts */}
       <View style={styles.sectionCard}>
         <Text style={styles.cardSectionTitle}>Smart Scrolling Alerts</Text>
+
+        <Pressable
+          onPress={() => {
+            const next = !speedbumpEnabled;
+            setSpeedbumpEnabled(next);
+            PrototypeSettings.setSpeedbumpEnabled(next).catch(() => {});
+          }}
+          style={styles.toggleRow}
+        >
+          <View style={styles.toggleInfo}>
+            <Text style={styles.toggleTitle}>Mindful Speedbump Pause</Text>
+            <Text style={styles.toggleSubtitle}>
+              Prompts a 3-second breathing countdown before entering video feeds to break unconscious reflexes.
+            </Text>
+          </View>
+          <View
+            style={[styles.switchTrack, speedbumpEnabled && styles.switchTrackOn]}
+          >
+            <View
+              style={[
+                styles.switchThumb,
+                speedbumpEnabled && styles.switchThumbOn,
+              ]}
+            />
+          </View>
+        </Pressable>
 
         <Pressable
           onPress={() => {
@@ -2537,6 +2605,25 @@ function App() {
         <Text style={styles.body}>
           • No internet analytics, advertising IDs, or external servers are used.
         </Text>
+      </View>
+
+      {/* Share Progress Card */}
+      <View style={styles.sectionCard}>
+        <View style={styles.cardHeaderWithAction}>
+          <Text style={styles.cardSectionTitle}>📤 Share Progress & Milestones</Text>
+          <Text style={styles.cardSelectedHighlight}>{mindfulStreak}d Streak</Text>
+        </View>
+        <Text style={styles.cardSubtitle}>
+          Export or share your digital wellbeing achievements and time reclaimed beyond feeds.
+        </Text>
+        <Pressable
+          onPress={shareMindfulProgress}
+          style={styles.settingsActionBtn}
+        >
+          <Text style={styles.settingsActionBtnText}>
+            Share Weekly Mindful Report Card →
+          </Text>
+        </Pressable>
       </View>
 
       {/* Management Actions */}

@@ -18,6 +18,19 @@ export type PrototypeStatus = {
   bedtimeShieldActive?: boolean;
   doomscrollAlertEnabled?: boolean;
   breakReminderEnabled?: boolean;
+  speedbumpEnabled?: boolean;
+  zenXp?: number;
+  userIntention?: string;
+  userMood?: string;
+  triggerBoredom?: number;
+  triggerStress?: number;
+  triggerProcrastination?: number;
+  triggerHabit?: number;
+  triggerFomo?: number;
+  instagramLimit?: number;
+  tiktokLimit?: number;
+  youtubeLimit?: number;
+  snapchatLimit?: number;
 };
 
 export type DayHistoryItem = {
@@ -52,6 +65,12 @@ type PrototypeSettingsModule = {
   playSoundscape(soundscape: string, durationMinutes: number): Promise<boolean>;
   stopSoundscape(): Promise<boolean>;
   isSoundscapePlaying(): Promise<boolean>;
+  setSpeedbumpEnabled(enabled: boolean): Promise<boolean>;
+  setPackageLimit(packageName: string, limit: number): Promise<boolean>;
+  addZenXp(amount: number): Promise<number>;
+  logTrigger(trigger: string): Promise<number>;
+  setUserIntention(intention: string): Promise<boolean>;
+  setUserMood(mood: string): Promise<boolean>;
 };
 
 const { PrototypeSettings } = NativeModules as {
@@ -181,5 +200,41 @@ export default {
       return Promise.resolve(false);
     }
     return PrototypeSettings.isSoundscapePlaying();
+  },
+  setSpeedbumpEnabled(enabled: boolean): Promise<boolean> {
+    if (!PrototypeSettings?.setSpeedbumpEnabled) {
+      return Promise.resolve(false);
+    }
+    return PrototypeSettings.setSpeedbumpEnabled(enabled);
+  },
+  setPackageLimit(packageName: string, limit: number): Promise<boolean> {
+    if (!PrototypeSettings?.setPackageLimit) {
+      return Promise.resolve(false);
+    }
+    return PrototypeSettings.setPackageLimit(packageName, limit);
+  },
+  addZenXp(amount: number): Promise<number> {
+    if (!PrototypeSettings?.addZenXp) {
+      return Promise.resolve(amount);
+    }
+    return PrototypeSettings.addZenXp(amount);
+  },
+  logTrigger(trigger: string): Promise<number> {
+    if (!PrototypeSettings?.logTrigger) {
+      return Promise.resolve(1);
+    }
+    return PrototypeSettings.logTrigger(trigger);
+  },
+  setUserIntention(intention: string): Promise<boolean> {
+    if (!PrototypeSettings?.setUserIntention) {
+      return Promise.resolve(false);
+    }
+    return PrototypeSettings.setUserIntention(intention);
+  },
+  setUserMood(mood: string): Promise<boolean> {
+    if (!PrototypeSettings?.setUserMood) {
+      return Promise.resolve(false);
+    }
+    return PrototypeSettings.setUserMood(mood);
   },
 };

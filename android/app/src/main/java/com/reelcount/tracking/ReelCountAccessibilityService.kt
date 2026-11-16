@@ -162,7 +162,9 @@ class ReelCountAccessibilityService : AccessibilityService() {
       val currentPkgCount = PrototypeRuntimeStatus.getPackageCount(canonicalPkg, prefs)
       val todayTotal = prefs.getTodayCount()
       val dailyLimit = prefs.getDailyShortLimit()
-      val isLimitHit = todayTotal >= dailyLimit
+      val pkgLimit = prefs.getPackageLimit(canonicalPkg)
+      val isPkgLimitHit = pkgLimit > 0 && currentPkgCount >= pkgLimit
+      val isLimitHit = (todayTotal >= dailyLimit) || isPkgLimitHit
 
       // Update HUD overlay
       overlayHud?.updateCount(appLabel, currentPkgCount, isLimitHit)
@@ -178,10 +180,13 @@ class ReelCountAccessibilityService : AccessibilityService() {
           triggerTickVibration()
         }
       } else if (isLimitHit) {
-        // Daily Limit Crossed
-        if (todayTotal == dailyLimit || (now - lastLimitAlertTime > 180_000L)) {
+        // Daily or Per-App Limit Crossed
+        if (todayTotal == dailyLimit || (isPkgLimitHit && currentPkgCount == pkgLimit) || (now - lastLimitAlertTime > 180_000L)) {
           lastLimitAlertTime = now
-          sendLimitReachedNotification(todayTotal, dailyLimit)
+          val notifTitle = if (isPkgLimitHit) appLabel else "Daily"
+          val notifLimit = if (isPkgLimitHit) pkgLimit else dailyLimit
+          val notifCount = if (isPkgLimitHit) currentPkgCount else todayTotal
+          sendLimitReachedNotification(notifCount, notifLimit, notifTitle)
           triggerWarningVibration()
         } else {
           triggerTickVibration()
@@ -268,14 +273,15 @@ class ReelCountAccessibilityService : AccessibilityService() {
     return PendingIntent.getActivity(this, 0, launchIntent, flags)
   }
 
-  private fun sendLimitReachedNotification(total: Int, limit: Int) {
+  private fun sendLimitReachedNotification(total: Int, limit: Int, label: String = "Daily") {
     val nm = notificationManager ?: return
     val pendingIntent = getLaunchPendingIntent()
     try {
       if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+        val title = if (label == "Daily") "⚠️ ReelCount: Daily Limit Reached" else "⚠️ ReelCount: $label Limit Reached"
         val builder = android.app.Notification.Builder(this, CHANNEL_ID)
-          .setContentTitle("⚠️ ReelCount: Daily Limit Reached")
-          .setContentText("You've watched $total shorts today (Limit: $limit). Tap to take a mindful break.")
+          .setContentTitle(title)
+          .setContentText("You've watched $total shorts (Limit: $limit). Tap to take a mindful break.")
           .setSmallIcon(android.R.drawable.ic_dialog_alert)
           .setAutoCancel(true)
 
