@@ -265,6 +265,14 @@ class ReelCountPreferences private constructor(context: Context) {
     return prefs.getString("mood_$today", null)
   }
 
+  fun setThemeAccent(theme: String) {
+    prefs.edit().putString(KEY_THEME_ACCENT, theme).apply()
+  }
+
+  fun getThemeAccent(): String {
+    return prefs.getString(KEY_THEME_ACCENT, "mint") ?: "mint"
+  }
+
   data class DayCount(val date: String, val label: String, val count: Int)
 
   companion object {
@@ -286,6 +294,7 @@ class ReelCountPreferences private constructor(context: Context) {
     private const val KEY_SPEEDBUMP_ENABLED = "speedbump_enabled"
     private const val KEY_ZEN_XP = "zen_xp"
     private const val KEY_USER_INTENTION = "user_intention"
+    private const val KEY_THEME_ACCENT = "theme_accent"
 
     @Volatile
     private var INSTANCE: ReelCountPreferences? = null

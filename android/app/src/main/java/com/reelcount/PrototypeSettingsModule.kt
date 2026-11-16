@@ -70,6 +70,7 @@ class PrototypeSettingsModule(context: ReactApplicationContext) : ReactContextBa
       putInt("tiktokLimit", prefs.getPackageLimit(TargetPackages.TIKTOK))
       putInt("youtubeLimit", prefs.getPackageLimit(TargetPackages.YOUTUBE))
       putInt("snapchatLimit", prefs.getPackageLimit(TargetPackages.SNAPCHAT))
+      putString("themeAccent", prefs.getThemeAccent())
     }
     promise.resolve(result)
   }
@@ -271,6 +272,16 @@ class PrototypeSettingsModule(context: ReactApplicationContext) : ReactContextBa
   fun resetCounters(promise: Promise) {
     PrototypeRuntimeStatus.reset(prefs)
     promise.resolve(null)
+  }
+
+  @ReactMethod
+  fun setThemeAccent(theme: String, promise: Promise) {
+    try {
+      prefs.setThemeAccent(theme)
+      promise.resolve(true)
+    } catch (e: Exception) {
+      promise.reject("THEME_ERROR", e.message, e)
+    }
   }
 
   @ReactMethod

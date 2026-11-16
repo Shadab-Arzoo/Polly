@@ -58,7 +58,7 @@ test('requires an explicit opt-in before opening Android accessibility settings'
       .map(node => node.props.children)
       .flat(Infinity)
       .join(''),
-  ).toContain('Candidate transitions this service session: 2');
+  ).toContain('Session scroll events detected: 2');
 
   const checkbox = renderer!.root.findByProps({
     accessibilityRole: 'checkbox',

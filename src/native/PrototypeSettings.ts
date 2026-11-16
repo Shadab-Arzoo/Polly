@@ -31,6 +31,7 @@ export type PrototypeStatus = {
   tiktokLimit?: number;
   youtubeLimit?: number;
   snapchatLimit?: number;
+  themeAccent?: string;
 };
 
 export type DayHistoryItem = {
@@ -71,6 +72,7 @@ type PrototypeSettingsModule = {
   logTrigger(trigger: string): Promise<number>;
   setUserIntention(intention: string): Promise<boolean>;
   setUserMood(mood: string): Promise<boolean>;
+  setThemeAccent(theme: string): Promise<boolean>;
 };
 
 const { PrototypeSettings } = NativeModules as {
@@ -236,5 +238,11 @@ export default {
       return Promise.resolve(false);
     }
     return PrototypeSettings.setUserMood(mood);
+  },
+  setThemeAccent(theme: string): Promise<boolean> {
+    if (!PrototypeSettings?.setThemeAccent) {
+      return Promise.resolve(false);
+    }
+    return PrototypeSettings.setThemeAccent(theme);
   },
 };

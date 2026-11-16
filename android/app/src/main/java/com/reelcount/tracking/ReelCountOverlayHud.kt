@@ -77,14 +77,26 @@ class ReelCountOverlayHud(private val context: Context) {
     handler.post { setupView() }
   }
 
+  private fun getThemeAccentColor(): Int {
+    return when (prefs.getThemeAccent().lowercase()) {
+      "mint" -> Color.parseColor("#6EE3AD")
+      "cyan" -> Color.parseColor("#38BDF8")
+      "amethyst" -> Color.parseColor("#C084FC")
+      "amber" -> Color.parseColor("#FBBF24")
+      "monochrome" -> Color.parseColor("#F9F8F9")
+      else -> Color.parseColor("#6EE3AD")
+    }
+  }
+
   private fun setupView() {
     if (hudView != null) return
 
+    val accent = getThemeAccentColor()
     val bg = GradientDrawable().apply {
       shape = GradientDrawable.RECTANGLE
       cornerRadius = dpToPx(24).toFloat()
-      setColor(Color.parseColor("#E60F1715"))
-      setStroke(dpToPx(2), Color.parseColor("#38D39F"))
+      setColor(Color.parseColor("#E60B0B0B"))
+      setStroke(dpToPx(2), accent)
     }
     backgroundDrawable = bg
 
@@ -99,20 +111,21 @@ class ReelCountOverlayHud(private val context: Context) {
     }
 
     val icon = TextView(context).apply {
-      text = "🎬 "
+      text = "✦ "
       setTextSize(TypedValue.COMPLEX_UNIT_SP, 14f)
+      setTextColor(accent)
     }
 
     val title = TextView(context).apply {
       text = "Shorts: "
-      setTextColor(Color.parseColor("#B0C2B8"))
+      setTextColor(Color.parseColor("#E5E5E4"))
       setTextSize(TypedValue.COMPLEX_UNIT_SP, 12f)
       setTypeface(typeface, android.graphics.Typeface.BOLD)
     }
 
     val counter = TextView(context).apply {
       text = "0"
-      setTextColor(Color.parseColor("#38D39F"))
+      setTextColor(accent)
       setTextSize(TypedValue.COMPLEX_UNIT_SP, 15f)
       setTypeface(typeface, android.graphics.Typeface.BOLD)
     }
@@ -208,14 +221,15 @@ class ReelCountOverlayHud(private val context: Context) {
     hudView?.visibility = View.VISIBLE
     isVisible = true
 
+    val accent = getThemeAccentColor()
     iconView?.visibility = View.VISIBLE
     titleView?.visibility = View.VISIBLE
-    iconView?.text = "🌿 "
+    iconView?.text = "✦ "
     titleView?.text = "Pause & Breathe: "
-    titleView?.setTextColor(Color.parseColor("#38D39F"))
+    titleView?.setTextColor(accent)
     counterView?.text = "3s"
-    counterView?.setTextColor(Color.parseColor("#A7F3D0"))
-    backgroundDrawable?.setStroke(dpToPx(2), Color.parseColor("#38D39F"))
+    counterView?.setTextColor(accent)
+    backgroundDrawable?.setStroke(dpToPx(2), accent)
     pulse()
 
     handler.postDelayed({
@@ -321,26 +335,28 @@ class ReelCountOverlayHud(private val context: Context) {
       counterView?.setTextColor(Color.parseColor("#EF4444"))
       backgroundDrawable?.setStroke(dpToPx(2), Color.parseColor("#EF4444"))
     } else {
+      val accent = getThemeAccentColor()
+      iconView?.setTextColor(accent)
       when (displayCycleMode) {
         0 -> {
-          iconView?.text = "🎬 "
+          iconView?.text = "✦ "
           titleView?.text = "$shortLabel: "
           counterView?.text = "$count"
         }
         1 -> {
-          iconView?.text = "🎯 "
+          iconView?.text = "◈ "
           titleView?.text = "Today: "
           counterView?.text = "$todayTotal/$dailyLimit"
         }
         else -> {
-          iconView?.text = "⏱️ "
+          iconView?.text = "⏱ "
           titleView?.text = "Time: "
           counterView?.text = "${estimatedMins}m"
         }
       }
-      titleView?.setTextColor(Color.parseColor("#B0C2B8"))
-      counterView?.setTextColor(Color.parseColor("#38D39F"))
-      backgroundDrawable?.setStroke(dpToPx(2), Color.parseColor("#38D39F"))
+      titleView?.setTextColor(Color.parseColor("#E5E5E4"))
+      counterView?.setTextColor(accent)
+      backgroundDrawable?.setStroke(dpToPx(2), accent)
     }
   }
 
@@ -408,14 +424,27 @@ class ReelCountOverlayHud(private val context: Context) {
     }
   }
 
-  private fun pulse() {
+  private fun pulse(isWarning: Boolean = false) {
     val view = hudView ?: return
     try {
-      val scaleX = PropertyValuesHolder.ofFloat(View.SCALE_X, 1.0f, 1.18f, 1.0f)
-      val scaleY = PropertyValuesHolder.ofFloat(View.SCALE_Y, 1.0f, 1.18f, 1.0f)
-      ObjectAnimator.ofPropertyValuesHolder(view, scaleX, scaleY).apply {
-        duration = 180
-        start()
+      if (isWarning || isCurrentLimitReached) {
+        // Double heartbeat pulse for limit alert
+        val scaleX = PropertyValuesHolder.ofFloat(View.SCALE_X, 1.0f, 1.25f, 0.95f, 1.22f, 1.0f)
+        val scaleY = PropertyValuesHolder.ofFloat(View.SCALE_Y, 1.0f, 1.25f, 0.95f, 1.22f, 1.0f)
+        ObjectAnimator.ofPropertyValuesHolder(view, scaleX, scaleY).apply {
+          duration = 420
+          interpolator = android.view.animation.AccelerateDecelerateInterpolator()
+          start()
+        }
+      } else {
+        // Juicy, tactile spring bounce with overshoot
+        val scaleX = PropertyValuesHolder.ofFloat(View.SCALE_X, 1.0f, 1.22f, 0.96f, 1.0f)
+        val scaleY = PropertyValuesHolder.ofFloat(View.SCALE_Y, 1.0f, 1.22f, 0.96f, 1.0f)
+        ObjectAnimator.ofPropertyValuesHolder(view, scaleX, scaleY).apply {
+          duration = 280
+          interpolator = android.view.animation.OvershootInterpolator(2.4f)
+          start()
+        }
       }
     } catch (_: Exception) {}
   }

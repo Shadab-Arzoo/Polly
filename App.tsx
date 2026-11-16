@@ -1,6 +1,9 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   Alert,
+  Animated,
+  Easing,
+  Image,
   Modal,
   Pressable,
   ScrollView,
@@ -11,6 +14,7 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
+import { AppIcon, type IconName } from './src/components/AppIcon';
 import PrototypeSettings, {
   type DayHistoryItem,
   type PrototypeStatus,
@@ -21,7 +25,7 @@ type Tab = 'counter' | 'timers' | 'block' | 'settings';
 type BreathePhase = 'Inhale' | 'Hold' | 'Exhale';
 type CravingTab = 'breathing' | 'delay' | 'grounding' | 'stroop';
 type HudStyle = 'pill' | 'dot' | 'warning_only';
-type ThemeAccent = 'emerald' | 'cyan' | 'amethyst' | 'amber' | 'monochrome';
+type ThemeAccent = 'mint' | 'cyan' | 'amethyst' | 'amber' | 'monochrome' | 'emerald';
 type UserMood = 'zen' | 'focused' | 'distracted' | 'craving';
 type FocusSoundscape = 'rain' | 'forest' | 'waves' | 'cafe' | 'cosmic' | 'none';
 type TriggerType = 'boredom' | 'stress' | 'procrastination' | 'habit' | 'fomo';
@@ -43,7 +47,7 @@ function App() {
   const [speedbumpEnabled, setSpeedbumpEnabled] = useState(true);
   const [weeklyRecapAlert, setWeeklyRecapAlert] = useState(true);
   const [hudStyle, setHudStyle] = useState<HudStyle>('pill');
-  const [themeAccent, setThemeAccent] = useState<ThemeAccent>('emerald');
+  const [themeAccent, setThemeAccent] = useState<ThemeAccent>('mint');
   const [selectedIntention, setSelectedIntention] = useState<string>(
     'Deep Work First, Feeds Later',
   );
@@ -109,6 +113,89 @@ function App() {
   // Soundscape Duration
   const [soundscapeDurationMins, setSoundscapeDurationMins] = useState(25);
 
+  // Ambient Mindful Hero Ring Breathing Animation
+  const ringBreathAnim = useRef(new Animated.Value(0)).current;
+  useEffect(() => {
+    const animation = Animated.loop(
+      Animated.sequence([
+        Animated.timing(ringBreathAnim, {
+          toValue: 1,
+          duration: 3200,
+          easing: Easing.inOut(Easing.sin),
+          useNativeDriver: true,
+        }),
+        Animated.timing(ringBreathAnim, {
+          toValue: 0,
+          duration: 3200,
+          easing: Easing.inOut(Easing.sin),
+          useNativeDriver: true,
+        }),
+      ]),
+    );
+    animation.start();
+    return () => animation.stop();
+  }, [ringBreathAnim]);
+
+  const haloScale = ringBreathAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: [1.0, 1.07],
+  });
+
+  const haloOpacity = ringBreathAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: [0.72, 1.0],
+  });
+
+  // Smooth Tab Screen Transitions
+  const tabFadeAnim = useRef(new Animated.Value(1)).current;
+  const tabTranslateY = useRef(new Animated.Value(0)).current;
+  const prevTabRef = useRef<Tab>(activeTab);
+
+  useEffect(() => {
+    if (prevTabRef.current !== activeTab) {
+      prevTabRef.current = activeTab;
+      tabFadeAnim.setValue(0);
+      tabTranslateY.setValue(10);
+      Animated.parallel([
+        Animated.timing(tabFadeAnim, {
+          toValue: 1,
+          duration: 220,
+          easing: Easing.out(Easing.quad),
+          useNativeDriver: true,
+        }),
+        Animated.timing(tabTranslateY, {
+          toValue: 0,
+          duration: 220,
+          easing: Easing.out(Easing.quad),
+          useNativeDriver: true,
+        }),
+      ]).start();
+    }
+  }, [activeTab, tabFadeAnim, tabTranslateY]);
+
+  // Mindful Box Breathing Scale Animation in Craving Modal
+  const modalBreathAnim = useRef(new Animated.Value(1.0)).current;
+  useEffect(() => {
+    if (showCravingModal && cravingTab === 'breathing') {
+      if (breathePhase === 'Inhale') {
+        Animated.timing(modalBreathAnim, {
+          toValue: 1.35,
+          duration: 3900,
+          easing: Easing.inOut(Easing.ease),
+          useNativeDriver: true,
+        }).start();
+      } else if (breathePhase === 'Exhale') {
+        Animated.timing(modalBreathAnim, {
+          toValue: 1.0,
+          duration: 3900,
+          easing: Easing.inOut(Easing.ease),
+          useNativeDriver: true,
+        }).start();
+      }
+    } else {
+      modalBreathAnim.setValue(1.0);
+    }
+  }, [breathePhase, showCravingModal, cravingTab, modalBreathAnim]);
 
   const [prototypeStatus, setPrototypeStatus] = useState<PrototypeStatus>({
     serviceConnected: false,
@@ -163,6 +250,12 @@ function App() {
                 habit: status.triggerHabit ?? 5,
                 fomo: status.triggerFomo ?? 1,
               });
+            }
+            if (status.themeAccent) {
+              const savedAccent = status.themeAccent.toLowerCase() as ThemeAccent;
+              if (savedAccent === 'mint' || savedAccent === 'cyan' || savedAccent === 'amethyst' || savedAccent === 'amber' || savedAccent === 'monochrome' || savedAccent === 'emerald') {
+                setThemeAccent(savedAccent);
+              }
             }
             if (status.onboardingCompleted && !hasManuallyOpenedIntro) {
               setShowIntro(false);
@@ -616,50 +709,100 @@ function App() {
     },
   ];
 
-  const themeColors = {
+  const themeColors: Record<ThemeAccent, {
+    primary: string;
+    primaryDark: string;
+    glow: string;
+    border: string;
+    surface: string;
+    background: string;
+    hairline: string;
+    actionFill: string;
+    actionText: string;
+    name: string;
+    iconName: IconName;
+  }> = {
+    mint: {
+      primary: '#6ee3ad',
+      primaryDark: '#34d399',
+      glow: 'rgba(110, 227, 173, 0.16)',
+      border: 'rgba(110, 227, 173, 0.45)',
+      surface: '#0b0b0b',
+      background: '#000000',
+      hairline: '#1d1d1d',
+      actionFill: '#1c1c1c',
+      actionText: '#fcfcfd',
+      name: 'Obsidian Mint (Default)',
+      iconName: 'sparkle',
+    },
     emerald: {
-      primary: '#38d39f',
-      primaryDark: '#10b981',
-      glow: 'rgba(56, 211, 159, 0.15)',
-      border: 'rgba(56, 211, 159, 0.4)',
-      name: 'Emerald Sanctuary',
-      icon: '🌿',
+      primary: '#6ee3ad',
+      primaryDark: '#34d399',
+      glow: 'rgba(110, 227, 173, 0.16)',
+      border: 'rgba(110, 227, 173, 0.45)',
+      surface: '#0b0b0b',
+      background: '#000000',
+      hairline: '#1d1d1d',
+      actionFill: '#1c1c1c',
+      actionText: '#fcfcfd',
+      name: 'Obsidian Mint (Default)',
+      iconName: 'sparkle',
     },
     cyan: {
-      primary: '#22d3ee',
-      primaryDark: '#06b6d4',
-      glow: 'rgba(34, 211, 238, 0.15)',
-      border: 'rgba(34, 211, 238, 0.4)',
-      name: 'Cyber Cyan',
-      icon: '🌌',
+      primary: '#38bdf8',
+      primaryDark: '#0284c7',
+      glow: 'rgba(56, 189, 248, 0.16)',
+      border: 'rgba(56, 189, 248, 0.45)',
+      surface: '#0b0b0b',
+      background: '#000000',
+      hairline: '#1d1d1d',
+      actionFill: '#1c1c1c',
+      actionText: '#fcfcfd',
+      name: 'Cyber Sky',
+      iconName: 'wave',
     },
     amethyst: {
       primary: '#c084fc',
-      primaryDark: '#a855f7',
-      glow: 'rgba(192, 132, 252, 0.15)',
-      border: 'rgba(192, 132, 252, 0.4)',
-      name: 'Deep Amethyst',
-      icon: '🔮',
+      primaryDark: '#9333ea',
+      glow: 'rgba(192, 132, 252, 0.16)',
+      border: 'rgba(192, 132, 252, 0.45)',
+      surface: '#0b0b0b',
+      background: '#000000',
+      hairline: '#1d1d1d',
+      actionFill: '#1c1c1c',
+      actionText: '#fcfcfd',
+      name: 'Amethyst Aura',
+      iconName: 'zen',
     },
     amber: {
       primary: '#fbbf24',
-      primaryDark: '#f59e0b',
-      glow: 'rgba(251, 191, 36, 0.15)',
-      border: 'rgba(251, 191, 36, 0.4)',
-      name: 'Solar Amber',
-      icon: '🌅',
+      primaryDark: '#d97706',
+      glow: 'rgba(251, 191, 36, 0.16)',
+      border: 'rgba(251, 191, 36, 0.45)',
+      surface: '#0b0b0b',
+      background: '#000000',
+      hairline: '#1d1d1d',
+      actionFill: '#1c1c1c',
+      actionText: '#fcfcfd',
+      name: 'Warm Solar',
+      iconName: 'flame',
     },
     monochrome: {
-      primary: '#e4e4e7',
-      primaryDark: '#a1a1aa',
-      glow: 'rgba(244, 244, 245, 0.12)',
-      border: 'rgba(244, 244, 245, 0.35)',
-      name: 'Obsidian Minimalist',
-      icon: '🌑',
+      primary: '#f9f8f9',
+      primaryDark: '#d6d6d5',
+      glow: 'rgba(255, 255, 255, 0.12)',
+      border: 'rgba(255, 255, 255, 0.35)',
+      surface: '#0b0b0b',
+      background: '#000000',
+      hairline: '#1d1d1d',
+      actionFill: '#1c1c1c',
+      actionText: '#fcfcfd',
+      name: 'Pure Monochrome',
+      iconName: 'moon',
     },
   };
 
-  const currentTheme = themeColors[themeAccent];
+  const currentTheme = themeColors[themeAccent] || themeColors.mint;
 
   // Zen Level & Attention Mastery
   const getZenLevel = (xp: number) => {
@@ -849,49 +992,88 @@ function App() {
   // Render Intro & Permissions Screen
   const renderIntroScreen = () => (
     <ScrollView contentContainerStyle={styles.content}>
+      {/* Visual Hero Illustration */}
+      <Image
+        source={require('./src/assets/images/intro_mindful_focus.png')}
+        style={styles.introHeroIllustration}
+        resizeMode="cover"
+      />
+
       <View style={styles.introHeader}>
-        <View style={styles.logoBadge}>
-          <Text style={styles.logoBadgeText}>🎬</Text>
+        <View style={[styles.brandBadgeIconWrap, { borderColor: currentTheme.border, backgroundColor: currentTheme.glow }]}>
+          <AppIcon name="reels" size={24} color={currentTheme.primary} />
         </View>
-        <Text style={styles.eyebrow}>REELCOUNT</Text>
+        <Text style={[styles.eyebrow, { color: currentTheme.primary }]}>REELCOUNT SANCTUARY</Text>
         <Text style={styles.title}>Mindful Short Video Habits</Text>
         <Text style={styles.introSummary}>
           Quietly observe your short-form video consumption across Instagram Reels, TikTok, YouTube Shorts, and Snapchat so you notice doomscrolling before it takes over your day.
         </Text>
       </View>
 
-      {/* Feature Highlights Card */}
+      {/* Feature Showcase Cards with Visual Graphics */}
       <View style={styles.onboardingHighlights}>
-        <View style={styles.highlightItem}>
-          <Text style={styles.highlightIcon}>📊</Text>
-          <View style={styles.highlightInfo}>
-            <Text style={styles.highlightTitle}>Live Swipe Counter</Text>
-            <Text style={styles.highlightDesc}>Floating draggable HUD pulses on every short you swipe.</Text>
+        <View style={styles.introCardWithImage}>
+          <Image
+            source={require('./src/assets/images/intro_swipe_hud.png')}
+            style={styles.introFeatureVisual}
+            resizeMode="cover"
+          />
+          <View style={styles.highlightItem}>
+            <View style={[styles.iconBadgePill, { borderColor: currentTheme.border, backgroundColor: currentTheme.glow }]}>
+              <AppIcon name="dashboard" size={18} color={currentTheme.primary} />
+            </View>
+            <View style={styles.highlightInfo}>
+              <Text style={styles.highlightTitle}>Live Interactive HUD</Text>
+              <Text style={styles.highlightDesc}>Floating draggable pill pulses on every video swiped. Tap to view daily progress.</Text>
+            </View>
           </View>
         </View>
-        <View style={styles.highlightItem}>
-          <Text style={styles.highlightIcon}>🛡️</Text>
-          <View style={styles.highlightInfo}>
-            <Text style={styles.highlightTitle}>Distraction Focus Blocker</Text>
-            <Text style={styles.highlightDesc}>Locks addictive feeds during study, work, or bedtime.</Text>
+
+        <View style={styles.introCardWithImage}>
+          <Image
+            source={require('./src/assets/images/intro_zen_shield.png')}
+            style={styles.introFeatureVisual}
+            resizeMode="cover"
+          />
+          <View style={styles.highlightItem}>
+            <View style={[styles.iconBadgePill, { borderColor: currentTheme.border, backgroundColor: currentTheme.glow }]}>
+              <AppIcon name="shield" size={18} color={currentTheme.primary} />
+            </View>
+            <View style={styles.highlightInfo}>
+              <Text style={styles.highlightTitle}>Automatic Bedtime Shield</Text>
+              <Text style={styles.highlightDesc}>Locks addictive feeds between 11 PM and 6 AM so your sleep and recovery remain protected.</Text>
+            </View>
           </View>
         </View>
+
         <View style={styles.highlightItem}>
-          <Text style={styles.highlightIcon}>🔒</Text>
+          <View style={[styles.iconBadgePill, { borderColor: currentTheme.border, backgroundColor: currentTheme.glow }]}>
+            <AppIcon name="zen" size={18} color={currentTheme.primary} />
+          </View>
+          <View style={styles.highlightInfo}>
+            <Text style={styles.highlightTitle}>3-Second Mindful Speedbump</Text>
+            <Text style={styles.highlightDesc}>Gentle reflex interrupter provides 3 seconds of conscious breath before entering feeds.</Text>
+          </View>
+        </View>
+
+        <View style={styles.highlightItem}>
+          <View style={[styles.iconBadgePill, { borderColor: currentTheme.border, backgroundColor: currentTheme.glow }]}>
+            <AppIcon name="lock" size={18} color={currentTheme.primary} />
+          </View>
           <View style={styles.highlightInfo}>
             <Text style={styles.highlightTitle}>100% On-Device & Private</Text>
-            <Text style={styles.highlightDesc}>Never reads messages, passwords, or personal screen data.</Text>
+            <Text style={styles.highlightDesc}>Zero data sent to any servers. Never reads messages, passwords, or personal screen data.</Text>
           </View>
         </View>
       </View>
 
       <View style={styles.statusSection} accessibilityLiveRegion="polite">
-        <Text style={styles.sectionTitle}>Prototype status</Text>
+        <Text style={styles.sectionTitle}>Android Accessibility Service</Text>
         <View
           style={[
             styles.statusBadge,
             prototypeStatus.serviceConnected
-              ? styles.statusBadgeActive
+              ? [styles.statusBadgeActive, { borderColor: currentTheme.border, backgroundColor: currentTheme.glow }]
               : styles.statusBadgeInactive,
           ]}
         >
@@ -899,43 +1081,42 @@ function App() {
             style={[
               styles.statusBadgeText,
               prototypeStatus.serviceConnected
-                ? styles.statusBadgeTextActive
+                ? [styles.statusBadgeTextActive, { color: currentTheme.primary }]
                 : styles.statusBadgeTextInactive,
             ]}
           >
             {prototypeStatus.serviceConnected
-              ? '● Accessibility service connected'
-              : '○ Accessibility service not active'}
+              ? '● Accessibility Service Connected'
+              : '○ Service Not Enabled'}
           </Text>
         </View>
         <Text style={styles.body}>
-          Candidate transitions this service session: {prototypeStatus.candidateCount}
-        </Text>
-        <Text style={styles.body}>
-          Temporary event metadata buffered: {prototypeStatus.bufferedEventCount}
+          Session scroll events detected: {prototypeStatus.candidateCount}
         </Text>
         <Text style={styles.statusHint}>
-          Service tracks scroll events live in the background. Use the dashboard to monitor limits and focus blocks.
+          The accessibility service allows ReelCount to observe short-video transitions in real-time. No screen content is ever read or stored.
         </Text>
       </View>
 
       {prototypeStatus.serviceConnected ? (
-        <View style={styles.connectedCard}>
+        <View style={[styles.connectedCard, { borderColor: currentTheme.border }]}>
           <View style={styles.connectedHeaderRow}>
-            <Text style={styles.connectedCheckBadge}>✓</Text>
+            <View style={[styles.connectedCheckCircle, { backgroundColor: currentTheme.primary }]}>
+              <AppIcon name="check" size={14} color="#000000" />
+            </View>
             <View style={styles.connectedHeaderTextWrap}>
-              <Text style={styles.connectedHeaderTitle}>Accessibility Connected!</Text>
+              <Text style={styles.connectedHeaderTitle}>Accessibility Active!</Text>
               <Text style={styles.connectedHeaderSubtitle}>
-                ReelCount is live & ready to track mindful habits
+                ReelCount is live & ready to guard your focus
               </Text>
             </View>
           </View>
           <Pressable
             onPress={handleEnterDashboard}
-            style={styles.primaryLaunchButton}
+            style={[styles.primaryLaunchButton, { backgroundColor: currentTheme.actionFill, borderColor: currentTheme.border }]}
           >
-            <Text style={styles.primaryLaunchButtonText}>
-              Go to Home Dashboard →
+            <Text style={[styles.primaryLaunchButtonText, { color: currentTheme.actionText }]}>
+              Enter Sanctuary Dashboard →
             </Text>
           </Pressable>
         </View>
@@ -948,12 +1129,12 @@ function App() {
         style={styles.consentRow}
       >
         <View
-          style={[styles.checkbox, consentGiven && styles.checkboxChecked]}
+          style={[styles.checkbox, consentGiven && [styles.checkboxChecked, { backgroundColor: currentTheme.primary, borderColor: currentTheme.primary }]]}
         >
-          {consentGiven ? <Text style={styles.checkmark}>✓</Text> : null}
+          {consentGiven ? <AppIcon name="check" size={12} color="#000000" /> : null}
         </View>
         <Text style={styles.consentText}>
-          I understand this prototype and choose to continue to Android accessibility settings.
+          I understand ReelCount operates 100% locally on-device and choose to continue to Android accessibility settings.
         </Text>
       </Pressable>
 
@@ -962,12 +1143,16 @@ function App() {
         accessibilityState={{ disabled: !consentGiven }}
         disabled={!consentGiven}
         onPress={continueToSettings}
-        style={[styles.button, !consentGiven && styles.buttonDisabled]}
+        style={[
+          styles.button,
+          { backgroundColor: consentGiven ? currentTheme.actionFill : '#141414', borderColor: consentGiven ? currentTheme.border : '#222222' },
+          !consentGiven && styles.buttonDisabled,
+        ]}
       >
-        <Text style={styles.buttonText}>
+        <Text style={[styles.buttonText, { color: consentGiven ? currentTheme.actionText : '#666666' }]}>
           {prototypeStatus.serviceConnected
-            ? 'Manage accessibility settings'
-            : 'Continue to accessibility settings'}
+            ? 'Manage Android Accessibility Settings'
+            : 'Continue to Accessibility Settings'}
         </Text>
       </Pressable>
 
@@ -977,15 +1162,15 @@ function App() {
 
       {settingsError ? (
         <Text accessibilityRole="alert" style={styles.error}>
-          Android accessibility settings could not be opened. Please try again.
+          Android accessibility settings could not be opened. Please enable manually in Android Settings.
         </Text>
       ) : null}
 
       <Pressable
         onPress={handleEnterDashboard}
-        style={styles.enterDashboardButton}
+        style={[styles.enterDashboardButton, { borderColor: currentTheme.hairline }]}
       >
-        <Text style={styles.enterDashboardButtonText}>
+        <Text style={[styles.enterDashboardButtonText, { color: currentTheme.primary }]}>
           {prototypeStatus.serviceConnected ? 'Go to Home Dashboard →' : 'Skip to Dashboard →'}
         </Text>
       </Pressable>
@@ -999,32 +1184,34 @@ function App() {
       <View style={styles.dashboardHeader}>
         <View>
           <View style={styles.brandRow}>
-            <Text style={styles.brandBadgeEmoji}>🎬</Text>
+            <View style={[styles.brandBadgeWrap, { borderColor: currentTheme.border, backgroundColor: currentTheme.glow }]}>
+              <AppIcon name="reels" size={18} color={currentTheme.primary} />
+            </View>
             <Text style={styles.appHeaderTitle}>ReelCount</Text>
           </View>
           <Text style={styles.greetingText}>
-            {greeting.icon} {greeting.text} · <Text style={styles.greetingTip}>{greeting.tip}</Text>
+            {greeting.text} · <Text style={[styles.greetingTip, { color: currentTheme.primary }]}>{greeting.tip}</Text>
           </Text>
         </View>
         <View
           style={[
             styles.servicePill,
             prototypeStatus.serviceConnected
-              ? styles.servicePillActive
+              ? [styles.servicePillActive, { borderColor: currentTheme.border, backgroundColor: currentTheme.glow }]
               : styles.servicePillInactive,
           ]}
         >
           <View
             style={[
               styles.serviceDot,
-              prototypeStatus.serviceConnected ? styles.serviceDotActive : styles.serviceDotInactive,
+              prototypeStatus.serviceConnected ? [styles.serviceDotActive, { backgroundColor: currentTheme.primary }] : styles.serviceDotInactive,
             ]}
           />
           <Text
             style={[
               styles.servicePillText,
               prototypeStatus.serviceConnected
-                ? styles.servicePillTextActive
+                ? [styles.servicePillTextActive, { color: currentTheme.primary }]
                 : styles.servicePillTextInactive,
             ]}
           >
@@ -1033,17 +1220,24 @@ function App() {
         </View>
       </View>
 
+      {/* Visual In-App Banner */}
+      <Image
+        source={require('./src/assets/images/dashboard_zen_banner.png')}
+        style={styles.dashboardHeroBanner}
+        resizeMode="cover"
+      />
+
       {/* Focus Mode Live Banner if running */}
       {focusTimerRunning && (
-        <Pressable onPress={() => setActiveTab('block')} style={styles.activeFocusBanner}>
-          <Text style={styles.activeFocusBannerIcon}>🛡️</Text>
+        <Pressable onPress={() => setActiveTab('block')} style={[styles.activeFocusBanner, { borderColor: currentTheme.border }]}>
+          <AppIcon name="shield" size={20} color={currentTheme.primary} />
           <View style={styles.activeFocusBannerCol}>
-            <Text style={styles.activeFocusBannerTitle}>Shield Mode Engaged</Text>
+            <Text style={[styles.activeFocusBannerTitle, { color: currentTheme.primary }]}>Shield Mode Engaged</Text>
             <Text style={styles.activeFocusBannerSubtitle}>
               {formatTimer(focusTimerSeconds)} remaining · Distraction feeds locked
             </Text>
           </View>
-          <Text style={styles.activeFocusBannerAction}>View →</Text>
+          <Text style={[styles.activeFocusBannerAction, { color: currentTheme.primary }]}>View →</Text>
         </Pressable>
       )}
 
@@ -1235,15 +1429,25 @@ function App() {
 
         {/* Circular / Concentric Visual Ring Center */}
         <View style={styles.circularMetricContainer}>
-          <View style={styles.circularRingHalo}>
-            <View style={styles.circularRingInner}>
-              <Text style={[styles.heroCount, isOverLimit && styles.heroCountOverLimit]}>
+          <Animated.View
+            style={[
+              styles.circularRingHalo,
+              {
+                borderColor: currentTheme.border,
+                backgroundColor: currentTheme.glow,
+                transform: [{ scale: haloScale }],
+                opacity: haloOpacity,
+              },
+            ]}
+          >
+            <View style={[styles.circularRingInner, { borderColor: currentTheme.border }]}>
+              <Text style={[styles.heroCount, isOverLimit && styles.heroCountOverLimit, { color: isOverLimit ? '#ef4444' : currentTheme.primary }]}>
                 {totalShorts}
               </Text>
               <Text style={styles.heroUnitLabel}>videos today</Text>
               <Text style={styles.heroGoalSubtext}>of {dailyLimit} target</Text>
             </View>
-          </View>
+          </Animated.View>
         </View>
 
         {/* Dynamic Dopamine Risk Gauge */}
@@ -1257,7 +1461,7 @@ function App() {
                   ? styles.textDanger
                   : isNearLimit
                   ? styles.textWarning
-                  : styles.textSafe,
+                  : { color: currentTheme.primary },
               ]}
             >
               {isOverLimit
@@ -1276,7 +1480,7 @@ function App() {
                   ? styles.progressBarDanger
                   : isNearLimit
                   ? styles.progressBarWarning
-                  : styles.progressBarNormal,
+                  : { backgroundColor: currentTheme.primary },
               ]}
             />
           </View>
@@ -1293,25 +1497,25 @@ function App() {
         {/* 4-Stat Quick Grid inside Hero Card */}
         <View style={styles.heroStatsGrid}>
           <View style={styles.heroStatItem}>
-            <Text style={styles.heroStatIcon}>⏱️</Text>
+            <AppIcon name="timer" size={18} color={currentTheme.primary} />
             <Text style={styles.heroStatValue}>~{estMinutes}m</Text>
             <Text style={styles.heroStatLabel}>Screen Time</Text>
           </View>
           <View style={styles.heroStatDivider} />
           <View style={styles.heroStatItem}>
-            <Text style={styles.heroStatIcon}>🎯</Text>
+            <AppIcon name="target" size={18} color={currentTheme.primary} />
             <Text style={styles.heroStatValue}>{dailyLimit}</Text>
             <Text style={styles.heroStatLabel}>Daily Cap</Text>
           </View>
           <View style={styles.heroStatDivider} />
           <View style={styles.heroStatItem}>
-            <Text style={styles.heroStatIcon}>🔥</Text>
+            <AppIcon name="flame" size={18} color={currentTheme.primary} />
             <Text style={styles.heroStatValue}>{mindfulStreak} {mindfulStreak === 1 ? 'Day' : 'Days'}</Text>
             <Text style={styles.heroStatLabel}>Mindful Streak</Text>
           </View>
           <View style={styles.heroStatDivider} />
           <View style={styles.heroStatItem}>
-            <Text style={styles.heroStatIcon}>📈</Text>
+            <AppIcon name="chart" size={18} color={currentTheme.primary} />
             <Text style={styles.heroStatValue}>{dailyAverage}</Text>
             <Text style={styles.heroStatLabel}>7d Average</Text>
           </View>
@@ -1319,8 +1523,12 @@ function App() {
 
         {/* Quick Action Button */}
         {!focusTimerRunning && (
-          <Pressable onPress={handleQuickFocus15m} style={styles.quickFocusActionBtn}>
-            <Text style={styles.quickFocusActionText}>⚡ Start Quick 15m Focus Shield</Text>
+          <Pressable
+            onPress={handleQuickFocus15m}
+            style={[styles.quickFocusActionBtn, { borderColor: currentTheme.border, backgroundColor: currentTheme.actionFill }]}
+          >
+            <AppIcon name="bolt" size={16} color={currentTheme.primary} />
+            <Text style={[styles.quickFocusActionText, { color: currentTheme.actionText }]}>Start Quick 15m Focus Shield</Text>
           </Pressable>
         )}
       </View>
@@ -2355,15 +2563,23 @@ function App() {
       </View>
 
       {/* Focus Soundscape Ambient Companion */}
+      <Image
+        source={require('./src/assets/images/soundscape_banner.png')}
+        style={styles.dashboardHeroBanner}
+        resizeMode="cover"
+      />
       <View style={styles.sectionCard}>
         <View style={styles.cardHeaderWithAction}>
-          <Text style={styles.cardSectionTitle}>🎧 Focus Soundscapes</Text>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+            <AppIcon name="wave" size={20} color={currentTheme.primary} />
+            <Text style={styles.cardSectionTitle}>Focus Soundscapes</Text>
+          </View>
           <Pressable
             onPress={() => toggleSoundscapeAudio()}
-            style={styles.soundscapeToggleBtn}
+            style={[styles.soundscapeToggleBtn, { borderColor: currentTheme.border, backgroundColor: currentTheme.glow }]}
           >
-            <Text style={styles.soundscapeToggleBtnText}>
-              {soundscapePlaying ? '⏸️ Stop Audio' : '▶️ Play Audio'}
+            <Text style={[styles.soundscapeToggleBtnText, { color: currentTheme.primary }]}>
+              {soundscapePlaying ? 'Stop Audio' : 'Play Audio'}
             </Text>
           </Pressable>
         </View>
@@ -2562,26 +2778,32 @@ function App() {
       <View style={styles.sectionCard}>
         <View style={styles.cardHeaderWithAction}>
           <Text style={styles.cardSectionTitle}>Sanctuary Theme Palette</Text>
-          <Text style={styles.cardSelectedHighlight}>{currentTheme.name}</Text>
+          <Text style={[styles.cardSelectedHighlight, { color: currentTheme.primary }]}>{currentTheme.name}</Text>
         </View>
         <Text style={styles.cardSubtitle}>
-          Personalize your visual accent illumination across dashboard rings and widgets.
+          Personalize your visual accent illumination across dashboard rings, widgets, and the floating HUD.
         </Text>
         <View style={styles.themePaletteRow}>
-          {(['emerald', 'cyan', 'amethyst', 'amber', 'monochrome'] as ThemeAccent[]).map(accentKey => {
+          {(['mint', 'cyan', 'amethyst', 'amber', 'monochrome'] as ThemeAccent[]).map(accentKey => {
             const t = themeColors[accentKey];
-            const isSelected = themeAccent === accentKey;
+            const isSelected = themeAccent === accentKey || (accentKey === 'mint' && themeAccent === 'emerald');
             return (
               <Pressable
                 key={accentKey}
-                onPress={() => setThemeAccent(accentKey)}
+                onPress={() => {
+                  setThemeAccent(accentKey);
+                  PrototypeSettings.setThemeAccent(accentKey).catch(() => {});
+                }}
                 style={[
                   styles.themeChip,
-                  isSelected && styles.themeChipSelected,
+                  isSelected && {
+                    borderColor: t.primary,
+                    backgroundColor: t.glow,
+                  },
                 ]}
               >
-                <Text style={styles.themeChipIcon}>{t.icon}</Text>
-                <Text style={[styles.themeChipName, isSelected && styles.themeChipNameSelected]}>
+                <AppIcon name={t.iconName} size={18} color={isSelected ? t.primary : '#8aa395'} />
+                <Text style={[styles.themeChipName, isSelected && { color: t.primary, fontWeight: '800' }]}>
                   {t.name.split(' ')[0]}
                 </Text>
               </Pressable>
@@ -2669,28 +2891,38 @@ function App() {
           renderIntroScreen()
         ) : (
           <View style={styles.mainContainer}>
-            {activeTab === 'counter' && renderCounterTab()}
-            {activeTab === 'timers' && renderTimersTab()}
-            {activeTab === 'block' && renderBlockTab()}
-            {activeTab === 'settings' && renderSettingsTab()}
+            <Animated.View
+              style={[
+                styles.mainAnimatedContainer,
+                {
+                  opacity: tabFadeAnim,
+                  transform: [{ translateY: tabTranslateY }],
+                },
+              ]}
+            >
+              {activeTab === 'counter' && renderCounterTab()}
+              {activeTab === 'timers' && renderTimersTab()}
+              {activeTab === 'block' && renderBlockTab()}
+              {activeTab === 'settings' && renderSettingsTab()}
+            </Animated.View>
 
             {/* Bottom Tab Bar */}
-            <View style={styles.tabBar}>
+            <View style={[styles.tabBar, { borderTopColor: currentTheme.hairline, backgroundColor: currentTheme.surface }]}>
               <Pressable
                 onPress={() => setActiveTab('counter')}
                 style={[
                   styles.tabItem,
-                  activeTab === 'counter' && styles.tabItemActive,
+                  activeTab === 'counter' && [styles.tabItemActive, { borderTopColor: currentTheme.primary, backgroundColor: currentTheme.glow }],
                 ]}
               >
-                <Text style={styles.tabIcon}>📊</Text>
+                <AppIcon name="dashboard" size={20} color={activeTab === 'counter' ? currentTheme.primary : '#8aa395'} />
                 <Text
                   style={[
                     styles.tabLabel,
-                    activeTab === 'counter' && styles.tabLabelActive,
+                    activeTab === 'counter' && { color: currentTheme.primary, fontWeight: '800' },
                   ]}
                 >
-                  Counter
+                  Dashboard
                 </Text>
               </Pressable>
 
@@ -2698,14 +2930,14 @@ function App() {
                 onPress={() => setActiveTab('timers')}
                 style={[
                   styles.tabItem,
-                  activeTab === 'timers' && styles.tabItemActive,
+                  activeTab === 'timers' && [styles.tabItemActive, { borderTopColor: currentTheme.primary, backgroundColor: currentTheme.glow }],
                 ]}
               >
-                <Text style={styles.tabIcon}>⏱️</Text>
+                <AppIcon name="timer" size={20} color={activeTab === 'timers' ? currentTheme.primary : '#8aa395'} />
                 <Text
                   style={[
                     styles.tabLabel,
-                    activeTab === 'timers' && styles.tabLabelActive,
+                    activeTab === 'timers' && { color: currentTheme.primary, fontWeight: '800' },
                   ]}
                 >
                   Limits
@@ -2716,14 +2948,14 @@ function App() {
                 onPress={() => setActiveTab('block')}
                 style={[
                   styles.tabItem,
-                  activeTab === 'block' && styles.tabItemActive,
+                  activeTab === 'block' && [styles.tabItemActive, { borderTopColor: currentTheme.primary, backgroundColor: currentTheme.glow }],
                 ]}
               >
-                <Text style={styles.tabIcon}>🛡️</Text>
+                <AppIcon name="shield" size={20} color={activeTab === 'block' ? currentTheme.primary : '#8aa395'} />
                 <Text
                   style={[
                     styles.tabLabel,
-                    activeTab === 'block' && styles.tabLabelActive,
+                    activeTab === 'block' && { color: currentTheme.primary, fontWeight: '800' },
                   ]}
                 >
                   Focus
@@ -2734,14 +2966,14 @@ function App() {
                 onPress={() => setActiveTab('settings')}
                 style={[
                   styles.tabItem,
-                  activeTab === 'settings' && styles.tabItemActive,
+                  activeTab === 'settings' && [styles.tabItemActive, { borderTopColor: currentTheme.primary, backgroundColor: currentTheme.glow }],
                 ]}
               >
-                <Text style={styles.tabIcon}>⚙️</Text>
+                <AppIcon name="settings" size={20} color={activeTab === 'settings' ? currentTheme.primary : '#8aa395'} />
                 <Text
                   style={[
                     styles.tabLabel,
-                    activeTab === 'settings' && styles.tabLabelActive,
+                    activeTab === 'settings' && { color: currentTheme.primary, fontWeight: '800' },
                   ]}
                 >
                   Settings
@@ -2844,7 +3076,7 @@ function App() {
               {cravingTab === 'breathing' && (
                 <View style={styles.cravingContentWrap}>
                   <View style={styles.breatheVisualWrap}>
-                    <View
+                    <Animated.View
                       style={[
                         styles.breatheRingOuter,
                         breathePhase === 'Inhale'
@@ -2852,13 +3084,18 @@ function App() {
                           : breathePhase === 'Hold'
                           ? styles.breatheRingHold
                           : styles.breatheRingExhale,
+                        {
+                          borderColor: currentTheme.border,
+                          backgroundColor: currentTheme.glow,
+                          transform: [{ scale: modalBreathAnim }],
+                        },
                       ]}
                     >
-                      <View style={styles.breatheRingInner}>
-                        <Text style={styles.breathePhaseText}>{breathePhase}</Text>
+                      <View style={[styles.breatheRingInner, { borderColor: currentTheme.border }]}>
+                        <Text style={[styles.breathePhaseText, { color: currentTheme.primary }]}>{breathePhase}</Text>
                         <Text style={styles.breatheCycleCount}>{breatheCycleSec}s</Text>
                       </View>
-                    </View>
+                    </Animated.View>
                   </View>
                   <Text style={styles.breatheRemainingText}>
                     {breatheSecondsRemaining}s session remaining
@@ -3586,9 +3823,80 @@ const styles = StyleSheet.create({
     fontWeight: '800',
   },
 
-  safeArea: { flex: 1, backgroundColor: '#090e0c' },
-  mainContainer: { flex: 1, backgroundColor: '#090e0c' },
+  safeArea: { flex: 1, backgroundColor: '#000000' },
+  mainContainer: { flex: 1, backgroundColor: '#000000' },
+  mainAnimatedContainer: { flex: 1 },
   content: { paddingHorizontal: 16, paddingTop: 14, paddingBottom: 95 },
+
+  // Visual Assets & Banner Styles
+  introHeroIllustration: {
+    width: '100%',
+    height: 210,
+    borderRadius: 16,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: '#1d1d1d',
+    backgroundColor: '#000000',
+  },
+  introCardWithImage: {
+    backgroundColor: '#0b0b0b',
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: '#1d1d1d',
+    overflow: 'hidden',
+    marginBottom: 14,
+  },
+  introFeatureVisual: {
+    width: '100%',
+    height: 160,
+    backgroundColor: '#000000',
+    borderBottomWidth: 1,
+    borderBottomColor: '#1d1d1d',
+  },
+  dashboardHeroBanner: {
+    width: '100%',
+    height: 110,
+    borderRadius: 16,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: '#1d1d1d',
+    backgroundColor: '#000000',
+  },
+  brandBadgeIconWrap: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    marginBottom: 12,
+  },
+  brandBadgeWrap: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    marginRight: 8,
+  },
+  iconBadgePill: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    marginRight: 12,
+  },
+  connectedCheckCircle: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 12,
+  },
 
   // Dashboard Header
   dashboardHeader: {
@@ -3697,10 +4005,10 @@ const styles = StyleSheet.create({
 
   // Hero Counter Card
   heroCard: {
-    backgroundColor: '#111d17',
-    borderColor: 'rgba(56, 211, 159, 0.2)',
+    backgroundColor: '#0b0b0b',
+    borderColor: '#1d1d1d',
     borderWidth: 1,
-    borderRadius: 22,
+    borderRadius: 16,
     padding: 20,
     marginBottom: 16,
     shadowColor: '#000',
@@ -4043,10 +4351,10 @@ const styles = StyleSheet.create({
 
   // Section Cards
   sectionCard: {
-    backgroundColor: '#111d17',
-    borderColor: 'rgba(56, 211, 159, 0.12)',
+    backgroundColor: '#0b0b0b',
+    borderColor: '#1d1d1d',
     borderWidth: 1,
-    borderRadius: 18,
+    borderRadius: 16,
     padding: 18,
     marginBottom: 16,
   },
@@ -4591,8 +4899,8 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     height: 72,
-    backgroundColor: '#0c1411',
-    borderTopColor: 'rgba(56, 211, 159, 0.12)',
+    backgroundColor: '#0b0b0b',
+    borderTopColor: '#1d1d1d',
     borderTopWidth: 1,
     flexDirection: 'row',
     justifyContent: 'space-around',
