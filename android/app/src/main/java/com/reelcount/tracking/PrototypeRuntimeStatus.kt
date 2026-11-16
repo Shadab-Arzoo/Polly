@@ -39,13 +39,14 @@ internal object PrototypeRuntimeStatus {
     prefs: ReelCountPreferences? = null
   ) {
     if (candidate) {
-      if (prefs != null && packageName != null) {
-        candidateCount = prefs.incrementCount(packageName)
-        packageCounts[packageName] = prefs.getTodayPackageCount(packageName)
+      val canonical = packageName?.let { TargetPackages.getCanonicalName(it) }
+      if (prefs != null && canonical != null) {
+        candidateCount = prefs.incrementCount(canonical)
+        packageCounts[canonical] = prefs.getTodayPackageCount(canonical)
       } else {
         candidateCount += 1
-        if (packageName != null) {
-          packageCounts[packageName] = (packageCounts[packageName] ?: 0) + 1
+        if (canonical != null) {
+          packageCounts[canonical] = (packageCounts[canonical] ?: 0) + 1
         }
       }
     }

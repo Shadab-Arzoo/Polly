@@ -129,6 +129,18 @@ function App() {
             if (status.dailyShortLimit) {
               setDailyLimit(status.dailyShortLimit);
             }
+            if (status.hudStyle) {
+              setHudStyle(status.hudStyle as HudStyle);
+            }
+            if (status.bedtimeShieldEnabled !== undefined) {
+              setBedtimeShield(status.bedtimeShieldEnabled);
+            }
+            if (status.doomscrollAlertEnabled !== undefined) {
+              setDoomscrollAlert(status.doomscrollAlertEnabled);
+            }
+            if (status.breakReminderEnabled !== undefined) {
+              setBreakReminder(status.breakReminderEnabled);
+            }
             if (status.onboardingCompleted && !hasManuallyOpenedIntro) {
               setShowIntro(false);
             }
@@ -1889,17 +1901,18 @@ function App() {
           onPress={() => {
             const next = !bedtimeShield;
             setBedtimeShield(next);
+            PrototypeSettings.setBedtimeShield(next, 23, 6).catch(() => {});
             Alert.alert(
               next ? 'Bedtime Shield Active 🌙' : 'Bedtime Shield Disabled',
               next
-                ? 'Distracting feeds will be strictly blocked between 11:00 PM and 7:00 AM.'
+                ? 'Distracting feeds will be strictly blocked between 11:00 PM and 6:00 AM.'
                 : 'Nighttime automatic lock has been turned off.',
             );
           }}
           style={styles.toggleRow}
         >
           <View style={styles.toggleInfo}>
-            <Text style={styles.toggleTitle}>Auto-Lock Between 11 PM - 7 AM</Text>
+            <Text style={styles.toggleTitle}>Auto-Lock Between 11 PM - 6 AM</Text>
             <Text style={styles.toggleSubtitle}>
               Protects nighttime rest and eliminates late-night doomscrolling before sleep.
             </Text>
@@ -1915,7 +1928,11 @@ function App() {
         <Text style={styles.cardSectionTitle}>Smart Scrolling Alerts</Text>
 
         <Pressable
-          onPress={() => setBreakReminder(prev => !prev)}
+          onPress={() => {
+            const next = !breakReminder;
+            setBreakReminder(next);
+            PrototypeSettings.setBreakReminder(next).catch(() => {});
+          }}
           style={styles.toggleRow}
         >
           <View style={styles.toggleInfo}>
@@ -1934,13 +1951,17 @@ function App() {
         </Pressable>
 
         <Pressable
-          onPress={() => setDoomscrollAlert(prev => !prev)}
+          onPress={() => {
+            const next = !doomscrollAlert;
+            setDoomscrollAlert(next);
+            PrototypeSettings.setDoomscrollAlert(next).catch(() => {});
+          }}
           style={styles.toggleRow}
         >
           <View style={styles.toggleInfo}>
-            <Text style={styles.toggleTitle}>Haptic Swipe Tick</Text>
+            <Text style={styles.toggleTitle}>Doomscroll Loop Alert & Haptic</Text>
             <Text style={styles.toggleSubtitle}>
-              Gentle tactile vibration pulse on each detected video scroll.
+              Vibrates & alerts after 15 consecutive shorts to break compulsive scrolling.
             </Text>
           </View>
           <View
@@ -2431,6 +2452,7 @@ function App() {
               key={styleOpt.id}
               onPress={() => {
                 setHudStyle(styleOpt.id);
+                PrototypeSettings.setHudStyle(styleOpt.id).catch(() => {});
                 Alert.alert('HUD Style Updated', `Floating overlay set to ${styleOpt.label} mode.`);
               }}
               style={[
@@ -2538,7 +2560,7 @@ function App() {
   return (
     <SafeAreaProvider>
       <SafeAreaView style={styles.safeArea}>
-        <StatusBar barStyle="light-content" backgroundColor="#090e0c" />
+        <StatusBar barStyle="light-content" />
 
         {/* Main Body */}
         {showIntro ? (

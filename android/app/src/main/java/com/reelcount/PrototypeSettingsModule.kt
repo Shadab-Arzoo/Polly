@@ -31,19 +31,32 @@ class PrototypeSettingsModule(context: ReactApplicationContext) : ReactContextBa
     val isFocusActive = prefs.isFocusModeActive()
     val focusRemainingSec = prefs.getFocusRemainingSeconds()
 
+    val instaCount = prefs.getTodayPackageCount(TargetPackages.INSTAGRAM) +
+      prefs.getTodayPackageCount(TargetPackages.INSTAGRAM_LITE)
+    val tiktokCount = prefs.getTodayPackageCount(TargetPackages.TIKTOK) +
+      prefs.getTodayPackageCount(TargetPackages.TIKTOK_TRILL) +
+      prefs.getTodayPackageCount(TargetPackages.TIKTOK_LITE)
+    val ytCount = prefs.getTodayPackageCount(TargetPackages.YOUTUBE)
+    val snapCount = prefs.getTodayPackageCount(TargetPackages.SNAPCHAT)
+
     val result = Arguments.createMap().apply {
       putBoolean("serviceConnected", isConnected)
       putInt("candidateCount", status.candidateCount)
       putInt("bufferedEventCount", status.bufferedEventCount)
-      putInt("instagramCount", prefs.getTodayPackageCount(TargetPackages.INSTAGRAM))
-      putInt("tiktokCount", prefs.getTodayPackageCount(TargetPackages.TIKTOK))
-      putInt("youtubeCount", prefs.getTodayPackageCount(TargetPackages.YOUTUBE))
-      putInt("snapchatCount", prefs.getTodayPackageCount(TargetPackages.SNAPCHAT))
+      putInt("instagramCount", instaCount)
+      putInt("tiktokCount", tiktokCount)
+      putInt("youtubeCount", ytCount)
+      putInt("snapchatCount", snapCount)
       putBoolean("focusModeActive", isFocusActive)
       putInt("focusRemainingSeconds", focusRemainingSec.toInt())
       putInt("dailyShortLimit", prefs.getDailyShortLimit())
       putInt("dailyTimeLimitMinutes", prefs.getDailyTimeLimitMinutes())
       putBoolean("onboardingCompleted", prefs.isOnboardingCompleted())
+      putString("hudStyle", prefs.getHudStyle())
+      putBoolean("bedtimeShieldEnabled", prefs.isBedtimeShieldEnabled())
+      putBoolean("bedtimeShieldActive", prefs.isBedtimeShieldActive())
+      putBoolean("doomscrollAlertEnabled", prefs.isDoomscrollAlertEnabled())
+      putBoolean("breakReminderEnabled", prefs.isBreakReminderEnabled())
     }
     promise.resolve(result)
   }
@@ -66,6 +79,14 @@ class PrototypeSettingsModule(context: ReactApplicationContext) : ReactContextBa
         val pkg = blockedPackages.getString(i)
         if (!pkg.isNullOrEmpty()) {
           pkgSet.add(pkg)
+          // Also block lite & regional variants
+          when (pkg) {
+            TargetPackages.INSTAGRAM -> pkgSet.add(TargetPackages.INSTAGRAM_LITE)
+            TargetPackages.TIKTOK -> {
+              pkgSet.add(TargetPackages.TIKTOK_TRILL)
+              pkgSet.add(TargetPackages.TIKTOK_LITE)
+            }
+          }
         }
       }
       prefs.setFocusMode(active, durationMinutes, pkgSet)
@@ -82,6 +103,46 @@ class PrototypeSettingsModule(context: ReactApplicationContext) : ReactContextBa
       promise.resolve(true)
     } catch (e: Exception) {
       promise.reject("LIMIT_ERROR", e.message, e)
+    }
+  }
+
+  @ReactMethod
+  fun setHudStyle(style: String, promise: Promise) {
+    try {
+      prefs.setHudStyle(style)
+      promise.resolve(true)
+    } catch (e: Exception) {
+      promise.reject("HUD_STYLE_ERROR", e.message, e)
+    }
+  }
+
+  @ReactMethod
+  fun setBedtimeShield(enabled: Boolean, startHour: Int, endHour: Int, promise: Promise) {
+    try {
+      prefs.setBedtimeShield(enabled, startHour, endHour)
+      promise.resolve(true)
+    } catch (e: Exception) {
+      promise.reject("BEDTIME_ERROR", e.message, e)
+    }
+  }
+
+  @ReactMethod
+  fun setDoomscrollAlert(enabled: Boolean, promise: Promise) {
+    try {
+      prefs.setDoomscrollAlertEnabled(enabled)
+      promise.resolve(true)
+    } catch (e: Exception) {
+      promise.reject("DOOMSCROLL_ALERT_ERROR", e.message, e)
+    }
+  }
+
+  @ReactMethod
+  fun setBreakReminder(enabled: Boolean, promise: Promise) {
+    try {
+      prefs.setBreakReminderEnabled(enabled)
+      promise.resolve(true)
+    } catch (e: Exception) {
+      promise.reject("BREAK_REMINDER_ERROR", e.message, e)
     }
   }
 

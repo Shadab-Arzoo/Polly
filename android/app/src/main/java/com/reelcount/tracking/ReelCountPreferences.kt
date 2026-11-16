@@ -138,7 +138,7 @@ class ReelCountPreferences private constructor(context: Context) {
     prefs.edit().putBoolean(KEY_ONBOARDING_COMPLETED, completed).apply()
   }
 
-  // --- HUD Screen Position Memory ---
+  // --- HUD Settings & Style ---
 
   fun saveHudPosition(x: Int, y: Int) {
     prefs.edit()
@@ -152,6 +152,53 @@ class ReelCountPreferences private constructor(context: Context) {
     return Pair(prefs.getInt(KEY_HUD_X, 16), prefs.getInt(KEY_HUD_Y, 72))
   }
 
+  fun setHudStyle(style: String) {
+    prefs.edit().putString(KEY_HUD_STYLE, style).apply()
+  }
+
+  fun getHudStyle(): String {
+    return prefs.getString(KEY_HUD_STYLE, "pill") ?: "pill"
+  }
+
+  // --- Bedtime Shield ---
+
+  fun setBedtimeShield(enabled: Boolean, startHour: Int = 23, endHour: Int = 6) {
+    prefs.edit()
+      .putBoolean(KEY_BEDTIME_SHIELD_ENABLED, enabled)
+      .putInt(KEY_BEDTIME_START_HOUR, startHour)
+      .putInt(KEY_BEDTIME_END_HOUR, endHour)
+      .apply()
+  }
+
+  fun isBedtimeShieldEnabled(): Boolean = prefs.getBoolean(KEY_BEDTIME_SHIELD_ENABLED, false)
+
+  fun isBedtimeShieldActive(): Boolean {
+    if (!isBedtimeShieldEnabled()) return false
+    val cal = java.util.Calendar.getInstance()
+    val hour = cal.get(java.util.Calendar.HOUR_OF_DAY)
+    val start = prefs.getInt(KEY_BEDTIME_START_HOUR, 23)
+    val end = prefs.getInt(KEY_BEDTIME_END_HOUR, 6)
+    return if (start > end) {
+      hour >= start || hour < end
+    } else {
+      hour in start until end
+    }
+  }
+
+  // --- Mindful Nudges & Alerts ---
+
+  fun setDoomscrollAlertEnabled(enabled: Boolean) {
+    prefs.edit().putBoolean(KEY_DOOMSCROLL_ALERT_ENABLED, enabled).apply()
+  }
+
+  fun isDoomscrollAlertEnabled(): Boolean = prefs.getBoolean(KEY_DOOMSCROLL_ALERT_ENABLED, true)
+
+  fun setBreakReminderEnabled(enabled: Boolean) {
+    prefs.edit().putBoolean(KEY_BREAK_REMINDER_ENABLED, enabled).apply()
+  }
+
+  fun isBreakReminderEnabled(): Boolean = prefs.getBoolean(KEY_BREAK_REMINDER_ENABLED, true)
+
   data class DayCount(val date: String, val label: String, val count: Int)
 
   companion object {
@@ -164,6 +211,12 @@ class ReelCountPreferences private constructor(context: Context) {
     private const val KEY_ONBOARDING_COMPLETED = "onboarding_completed"
     private const val KEY_HUD_X = "hud_pos_x"
     private const val KEY_HUD_Y = "hud_pos_y"
+    private const val KEY_HUD_STYLE = "hud_style"
+    private const val KEY_BEDTIME_SHIELD_ENABLED = "bedtime_shield_enabled"
+    private const val KEY_BEDTIME_START_HOUR = "bedtime_start_hour"
+    private const val KEY_BEDTIME_END_HOUR = "bedtime_end_hour"
+    private const val KEY_DOOMSCROLL_ALERT_ENABLED = "doomscroll_alert_enabled"
+    private const val KEY_BREAK_REMINDER_ENABLED = "break_reminder_enabled"
 
     @Volatile
     private var INSTANCE: ReelCountPreferences? = null

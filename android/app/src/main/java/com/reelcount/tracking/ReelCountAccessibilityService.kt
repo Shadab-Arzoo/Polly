@@ -3,7 +3,9 @@ package com.reelcount.tracking
 import android.accessibilityservice.AccessibilityService
 import android.app.NotificationChannel
 import android.app.NotificationManager
+import android.app.PendingIntent
 import android.content.Context
+import android.content.Intent
 import android.os.Build
 import android.os.Handler
 import android.os.Looper
@@ -19,10 +21,12 @@ import java.util.ArrayDeque
  *
  * Implements:
  * 1. Focus Mode Enforcement: Instantly exits and blocks target apps during active focus sessions.
- * 2. Real-time short video scroll tracking & live floating overlay HUD updates.
- * 3. Daily limit monitoring, push notifications, and warning alerts.
- * 4. Subtle haptic feedback on each detected short-video swipe.
- * 5. Persistent count tracking via ReelCountPreferences.
+ * 2. Bedtime Sleep Shield: Automatically blocks short-form feeds during night hours (11 PM - 6 AM).
+ * 3. Real-time short video scroll tracking & live floating overlay HUD updates.
+ * 4. Doomscroll Vortex Nudge: Warns users after 15 consecutive shorts to break compulsive loops.
+ * 5. Daily limit monitoring, interactive push notifications, and warning alerts.
+ * 6. Subtle haptic feedback on each detected short-video swipe.
+ * 7. Persistent count tracking via ReelCountPreferences.
  */
 class ReelCountAccessibilityService : AccessibilityService() {
   private val trace = ArrayDeque<EventMetadata>(MAX_TRACE_EVENTS)
@@ -36,6 +40,8 @@ class ReelCountAccessibilityService : AccessibilityService() {
   private var lastNotificationTime: Long = 0L
   private var lastLimitAlertTime: Long = 0L
   private var lastBlockedToastTime: Long = 0L
+  private var lastDoomscrollAlertTime: Long = 0L
+  private var consecutiveShortsInApp = 0
 
   private lateinit var prefs: ReelCountPreferences
   private var notificationManager: NotificationManager? = null
@@ -61,18 +67,32 @@ class ReelCountAccessibilityService : AccessibilityService() {
       prefs = ReelCountPreferences.getInstance(this)
     }
 
-    val appLabel = when (packageName) {
-      TargetPackages.INSTAGRAM -> "Instagram Reels"
-      TargetPackages.TIKTOK -> "TikTok"
-      TargetPackages.YOUTUBE -> "YouTube Shorts"
-      TargetPackages.SNAPCHAT -> "Snapchat Spotlight"
-      else -> "Shorts"
-    }
-
+    val appLabel = TargetPackages.getDisplayLabel(packageName)
     val now = System.currentTimeMillis()
 
-    // 1. FOCUS MODE ENFORCEMENT & APP BLOCKING
-    if (prefs.isPackageBlocked(packageName)) {
+    // 1. BEDTIME SLEEP SHIELD ENFORCEMENT
+    if (packageName in TargetPackages.all && prefs.isBedtimeShieldActive()) {
+      overlayHud?.hide()
+      currentActivePackage = null
+      performGlobalAction(GLOBAL_ACTION_HOME)
+
+      if (now - lastBlockedToastTime > 3_000L) {
+        lastBlockedToastTime = now
+        handler.post {
+          Toast.makeText(
+            applicationContext,
+            "🌙 ReelCount Bedtime Shield Active\nSleep sanctuary mode: $appLabel is blocked until morning",
+            Toast.LENGTH_LONG
+          ).show()
+        }
+        triggerWarningVibration()
+      }
+      return
+    }
+
+    // 2. FOCUS MODE ENFORCEMENT & APP BLOCKING
+    val canonicalPkg = TargetPackages.getCanonicalName(packageName)
+    if (prefs.isPackageBlocked(canonicalPkg) || prefs.isPackageBlocked(packageName)) {
       overlayHud?.hide()
       currentActivePackage = null
 
@@ -94,10 +114,11 @@ class ReelCountAccessibilityService : AccessibilityService() {
       return
     }
 
-    // 2. TARGET APP MONITORING
+    // 3. TARGET APP MONITORING
     if (packageName !in TargetPackages.all) {
       if (currentActivePackage != null && packageName != applicationContext.packageName) {
         currentActivePackage = null
+        consecutiveShortsInApp = 0
         overlayHud?.hide()
       }
       return
@@ -105,12 +126,15 @@ class ReelCountAccessibilityService : AccessibilityService() {
 
     val isAppSwitch = currentActivePackage != packageName
     currentActivePackage = packageName
+    if (isAppSwitch) {
+      consecutiveShortsInApp = 0
+    }
 
     // Notify when opening a short-video app
     if (isAppSwitch && (lastNotifiedPackage != packageName || now - lastNotificationTime > 15_000L)) {
       lastNotifiedPackage = packageName
       lastNotificationTime = now
-      val count = PrototypeRuntimeStatus.getPackageCount(packageName, prefs)
+      val count = PrototypeRuntimeStatus.getPackageCount(canonicalPkg, prefs)
       val dailyLimit = prefs.getDailyShortLimit()
       val isLimitHit = prefs.getTodayCount() >= dailyLimit
 
@@ -124,7 +148,7 @@ class ReelCountAccessibilityService : AccessibilityService() {
       overlayHud?.show(appLabel, count, isLimitHit)
     }
 
-    // 3. CANDIDATE SCROLL DETECTION
+    // 4. CANDIDATE SCROLL DETECTION
     val metadata = EventMetadata(event.eventType, packageName, event.eventTime)
     if (trace.size == MAX_TRACE_EVENTS) trace.removeFirst()
     trace.addLast(metadata)
@@ -133,7 +157,8 @@ class ReelCountAccessibilityService : AccessibilityService() {
     PrototypeRuntimeStatus.recordEvent(candidate, trace.size, packageName, prefs)
 
     if (candidate) {
-      val currentPkgCount = PrototypeRuntimeStatus.getPackageCount(packageName, prefs)
+      consecutiveShortsInApp++
+      val currentPkgCount = PrototypeRuntimeStatus.getPackageCount(canonicalPkg, prefs)
       val todayTotal = prefs.getTodayCount()
       val dailyLimit = prefs.getDailyShortLimit()
       val isLimitHit = todayTotal >= dailyLimit
@@ -141,8 +166,17 @@ class ReelCountAccessibilityService : AccessibilityService() {
       // Update HUD overlay
       overlayHud?.updateCount(appLabel, currentPkgCount, isLimitHit)
 
-      // Haptic & Notification alert when daily limit is crossed
-      if (isLimitHit) {
+      // Doomscroll Vortex Alert: 15+ consecutive shorts in a single session
+      if (prefs.isDoomscrollAlertEnabled() && consecutiveShortsInApp >= 15 && (consecutiveShortsInApp % 10 == 5)) {
+        if (now - lastDoomscrollAlertTime > 120_000L) {
+          lastDoomscrollAlertTime = now
+          sendDoomscrollNotification(consecutiveShortsInApp, appLabel)
+          triggerWarningVibration()
+        } else {
+          triggerTickVibration()
+        }
+      } else if (isLimitHit) {
+        // Daily Limit Crossed
         if (todayTotal == dailyLimit || (now - lastLimitAlertTime > 180_000L)) {
           lastLimitAlertTime = now
           sendLimitReachedNotification(todayTotal, dailyLimit)
@@ -166,24 +200,60 @@ class ReelCountAccessibilityService : AccessibilityService() {
         "ReelCount Alerts",
         NotificationManager.IMPORTANCE_HIGH
       ).apply {
-        description = "Daily limits and Focus Mode reminders"
+        description = "Daily limits, Doomscroll alerts, and Focus Mode reminders"
         enableVibration(true)
       }
       notificationManager?.createNotificationChannel(channel)
     }
   }
 
+  private fun getLaunchPendingIntent(): PendingIntent? {
+    val launchIntent = packageManager.getLaunchIntentForPackage(packageName)?.apply {
+      addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP)
+    } ?: return null
+
+    val flags = PendingIntent.FLAG_UPDATE_CURRENT or
+      (if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) PendingIntent.FLAG_IMMUTABLE else 0)
+
+    return PendingIntent.getActivity(this, 0, launchIntent, flags)
+  }
+
   private fun sendLimitReachedNotification(total: Int, limit: Int) {
     val nm = notificationManager ?: return
+    val pendingIntent = getLaunchPendingIntent()
     try {
       if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
         val builder = android.app.Notification.Builder(this, CHANNEL_ID)
           .setContentTitle("⚠️ ReelCount: Daily Limit Reached")
-          .setContentText("You've watched $total shorts today (Limit: $limit). Time to take a break!")
+          .setContentText("You've watched $total shorts today (Limit: $limit). Tap to take a mindful break.")
           .setSmallIcon(android.R.drawable.ic_dialog_alert)
           .setAutoCancel(true)
 
+        if (pendingIntent != null) {
+          builder.setContentIntent(pendingIntent)
+        }
+
         nm.notify(NOTIFICATION_LIMIT_ID, builder.build())
+      }
+    } catch (_: Exception) {}
+  }
+
+  private fun sendDoomscrollNotification(consecutive: Int, appName: String) {
+    val nm = notificationManager ?: return
+    val pendingIntent = getLaunchPendingIntent()
+    try {
+      if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+        val builder = android.app.Notification.Builder(this, CHANNEL_ID)
+          .setContentTitle("🌪️ Doomscroll Loop Warning")
+          .setContentText("$consecutive shorts watched in a row on $appName. Take a 4-4-4 breathing reset!")
+          .setSmallIcon(android.R.drawable.ic_popup_reminder)
+          .setAutoCancel(true)
+
+        if (pendingIntent != null) {
+          builder.setContentIntent(pendingIntent)
+        }
+
+        nm.notify(NOTIFICATION_DOOMSCROLL_ID, builder.build())
       }
     } catch (_: Exception) {}
   }
@@ -227,11 +297,12 @@ class ReelCountAccessibilityService : AccessibilityService() {
     handler.removeCallbacks(clearIdleState)
     trace.clear()
     reducer.reset()
+    consecutiveShortsInApp = 0
     PrototypeRuntimeStatus.interrupted()
     overlayHud?.hide()
   }
 
-  override fun onUnbind(intent: android.content.Intent?): Boolean {
+  override fun onUnbind(intent: Intent?): Boolean {
     clearTransientState()
     return super.onUnbind(intent)
   }
@@ -247,6 +318,7 @@ class ReelCountAccessibilityService : AccessibilityService() {
     handler.removeCallbacks(clearIdleState)
     trace.clear()
     reducer.reset()
+    consecutiveShortsInApp = 0
     PrototypeRuntimeStatus.disconnected()
     overlayHud?.hide()
     currentActivePackage = null
@@ -254,6 +326,7 @@ class ReelCountAccessibilityService : AccessibilityService() {
 
   private fun clearIdleTrace() {
     trace.clear()
+    consecutiveShortsInApp = 0
     PrototypeRuntimeStatus.clearTrace()
   }
 
@@ -262,5 +335,6 @@ class ReelCountAccessibilityService : AccessibilityService() {
     const val TRACE_IDLE_TIMEOUT_MS = 2_000L
     const val CHANNEL_ID = "reelcount_alerts"
     const val NOTIFICATION_LIMIT_ID = 1001
+    const val NOTIFICATION_DOOMSCROLL_ID = 1002
   }
 }

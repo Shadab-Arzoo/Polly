@@ -13,6 +13,11 @@ export type PrototypeStatus = {
   dailyShortLimit?: number;
   dailyTimeLimitMinutes?: number;
   onboardingCompleted?: boolean;
+  hudStyle?: string;
+  bedtimeShieldEnabled?: boolean;
+  bedtimeShieldActive?: boolean;
+  doomscrollAlertEnabled?: boolean;
+  breakReminderEnabled?: boolean;
 };
 
 export type DayHistoryItem = {
@@ -36,6 +41,14 @@ type PrototypeSettingsModule = {
   ): Promise<boolean>;
   getDailyHistory(): Promise<DayHistoryItem[]>;
   setOnboardingCompleted(completed: boolean): Promise<boolean>;
+  setHudStyle(style: string): Promise<boolean>;
+  setBedtimeShield(
+    enabled: boolean,
+    startHour: number,
+    endHour: number,
+  ): Promise<boolean>;
+  setDoomscrollAlert(enabled: boolean): Promise<boolean>;
+  setBreakReminder(enabled: boolean): Promise<boolean>;
 };
 
 const { PrototypeSettings } = NativeModules as {
@@ -116,5 +129,33 @@ export default {
       return Promise.resolve(false);
     }
     return PrototypeSettings.setOnboardingCompleted(completed);
+  },
+  setHudStyle(style: string): Promise<boolean> {
+    if (!PrototypeSettings?.setHudStyle) {
+      return Promise.resolve(false);
+    }
+    return PrototypeSettings.setHudStyle(style);
+  },
+  setBedtimeShield(
+    enabled: boolean,
+    startHour: number = 23,
+    endHour: number = 6,
+  ): Promise<boolean> {
+    if (!PrototypeSettings?.setBedtimeShield) {
+      return Promise.resolve(false);
+    }
+    return PrototypeSettings.setBedtimeShield(enabled, startHour, endHour);
+  },
+  setDoomscrollAlert(enabled: boolean): Promise<boolean> {
+    if (!PrototypeSettings?.setDoomscrollAlert) {
+      return Promise.resolve(false);
+    }
+    return PrototypeSettings.setDoomscrollAlert(enabled);
+  },
+  setBreakReminder(enabled: boolean): Promise<boolean> {
+    if (!PrototypeSettings?.setBreakReminder) {
+      return Promise.resolve(false);
+    }
+    return PrototypeSettings.setBreakReminder(enabled);
   },
 };

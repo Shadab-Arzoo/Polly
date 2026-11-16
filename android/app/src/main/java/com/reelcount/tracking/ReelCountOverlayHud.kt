@@ -3,11 +3,16 @@ package com.reelcount.tracking
 import android.animation.ObjectAnimator
 import android.animation.PropertyValuesHolder
 import android.content.Context
+import android.content.Intent
 import android.graphics.Color
 import android.graphics.PixelFormat
 import android.graphics.drawable.GradientDrawable
+import android.os.Build
 import android.os.Handler
 import android.os.Looper
+import android.os.VibrationEffect
+import android.os.Vibrator
+import android.os.VibratorManager
 import android.util.TypedValue
 import android.view.Gravity
 import android.view.MotionEvent
@@ -15,15 +20,19 @@ import android.view.View
 import android.view.WindowManager
 import android.widget.LinearLayout
 import android.widget.TextView
+import android.widget.Toast
 
 /**
- * On-screen floating HUD overlay that displays live scroll counts
+ * Interactive on-screen floating HUD overlay that displays live scroll counts
  * over supported short-form video applications using TYPE_ACCESSIBILITY_OVERLAY.
  *
- * Supports:
+ * Enhanced features:
  * - Draggable screen position memory (persisted via ReelCountPreferences)
+ * - Single-Tap cycling: App Count → Daily Total & Quota → Time Spent Estimate
+ * - Long-Press (>500ms): Instant launch into ReelCount Dashboard
+ * - HUD Style adaptation: 'pill' (rich), 'dot' (minimalist badge), or 'warning_only'
  * - Dynamic pulse animations on each scroll transition
- * - Limit reached warning alert states (red indicator)
+ * - Limit reached warning alert states (red glowing indicator)
  */
 class ReelCountOverlayHud(private val context: Context) {
   private val windowManager = context.getSystemService(Context.WINDOW_SERVICE) as? WindowManager
@@ -37,6 +46,12 @@ class ReelCountOverlayHud(private val context: Context) {
   private var backgroundDrawable: GradientDrawable? = null
   private var isAttached = false
   private var isVisible = false
+
+  // Display cycle: 0 = Current App, 1 = Daily Total / Limit, 2 = Estimated Minutes
+  private var displayCycleMode = 0
+  private var currentAppLabel = "Shorts"
+  private var currentAppCount = 0
+  private var isCurrentLimitReached = false
 
   private val layoutParams = WindowManager.LayoutParams(
     WindowManager.LayoutParams.WRAP_CONTENT,
@@ -106,11 +121,12 @@ class ReelCountOverlayHud(private val context: Context) {
     container.addView(title)
     container.addView(counter)
 
-    // Make floating pill draggable across the screen and remember final position
+    // Interactive gestures: Drag to reposition, Tap to cycle modes, Long-press to launch ReelCount
     var initialX = 0
     var initialY = 0
     var touchStartX = 0f
     var touchStartY = 0f
+    var touchStartTime = 0L
 
     container.setOnTouchListener { _, event ->
       when (event.action) {
@@ -119,6 +135,7 @@ class ReelCountOverlayHud(private val context: Context) {
           initialY = layoutParams.y
           touchStartX = event.rawX
           touchStartY = event.rawY
+          touchStartTime = System.currentTimeMillis()
           true
         }
         MotionEvent.ACTION_MOVE -> {
@@ -134,8 +151,27 @@ class ReelCountOverlayHud(private val context: Context) {
           true
         }
         MotionEvent.ACTION_UP -> {
-          // Persist user's preferred HUD coordinates
-          prefs.saveHudPosition(layoutParams.x, layoutParams.y)
+          val deltaX = Math.abs(event.rawX - touchStartX)
+          val deltaY = Math.abs(event.rawY - touchStartY)
+          val duration = System.currentTimeMillis() - touchStartTime
+          val isTap = deltaX < dpToPx(10) && deltaY < dpToPx(10)
+
+          if (isTap) {
+            if (duration >= 500) {
+              // Long Press: Launch ReelCount Dashboard
+              triggerHaptic(30)
+              launchReelCountApp()
+            } else {
+              // Single Tap: Cycle HUD metrics
+              triggerHaptic(12)
+              displayCycleMode = (displayCycleMode + 1) % 3
+              updateContent(currentAppLabel, currentAppCount, isCurrentLimitReached)
+              pulse()
+            }
+          } else {
+            // Drag completed: Persist user's preferred HUD coordinates
+            prefs.saveHudPosition(layoutParams.x, layoutParams.y)
+          }
           true
         }
         else -> false
@@ -151,9 +187,11 @@ class ReelCountOverlayHud(private val context: Context) {
   fun show(appLabel: String, count: Int, limitReached: Boolean = false) {
     handler.post {
       ensureAttached()
+      currentAppLabel = appLabel
+      currentAppCount = count
+      isCurrentLimitReached = limitReached
+      applyHudStyleVisibility(limitReached)
       updateContent(appLabel, count, limitReached)
-      hudView?.visibility = View.VISIBLE
-      isVisible = true
       pulse()
     }
   }
@@ -161,37 +199,133 @@ class ReelCountOverlayHud(private val context: Context) {
   fun updateCount(appLabel: String, count: Int, limitReached: Boolean = false) {
     handler.post {
       ensureAttached()
+      currentAppLabel = appLabel
+      currentAppCount = count
+      isCurrentLimitReached = limitReached
+      applyHudStyleVisibility(limitReached)
       updateContent(appLabel, count, limitReached)
-      hudView?.visibility = View.VISIBLE
-      isVisible = true
       pulse()
     }
   }
 
+  private fun applyHudStyleVisibility(limitReached: Boolean) {
+    val style = prefs.getHudStyle()
+    val todayTotal = prefs.getTodayCount()
+    val dailyLimit = prefs.getDailyShortLimit()
+
+    if (style == "warning_only") {
+      val isNearLimit = todayTotal >= (dailyLimit * 0.8)
+      if (limitReached || isNearLimit) {
+        hudView?.visibility = View.VISIBLE
+        isVisible = true
+      } else {
+        hudView?.visibility = View.GONE
+        isVisible = false
+      }
+      return
+    }
+
+    hudView?.visibility = View.VISIBLE
+    isVisible = true
+  }
+
   private fun updateContent(appLabel: String, count: Int, limitReached: Boolean) {
-    val shortLabel = when {
-      appLabel.contains("Instagram", ignoreCase = true) -> "Reels"
-      appLabel.contains("TikTok", ignoreCase = true) -> "TikTok"
-      appLabel.contains("YouTube", ignoreCase = true) -> "Shorts"
-      appLabel.contains("Snapchat", ignoreCase = true) -> "Spotlight"
-      else -> "Shorts"
+    val style = prefs.getHudStyle()
+    val shortLabel = TargetPackages.getShortBadgeLabel(appLabel)
+    val todayTotal = prefs.getTodayCount()
+    val dailyLimit = prefs.getDailyShortLimit()
+    // Estimate: ~30 seconds per short video
+    val estimatedMins = (todayTotal * 30) / 60
+
+    val isDot = style == "dot"
+
+    if (isDot) {
+      iconView?.visibility = View.GONE
+      titleView?.visibility = View.GONE
+      counterView?.setTextSize(TypedValue.COMPLEX_UNIT_SP, 13f)
+      val pad = dpToPx(8)
+      hudView?.setPadding(pad, pad, pad, pad)
+    } else {
+      iconView?.visibility = View.VISIBLE
+      titleView?.visibility = View.VISIBLE
+      counterView?.setTextSize(TypedValue.COMPLEX_UNIT_SP, 15f)
+      val padH = dpToPx(14)
+      val padV = dpToPx(8)
+      hudView?.setPadding(padH, padV, padH, padV)
     }
 
     if (limitReached) {
       iconView?.text = "⚠️ "
-      titleView?.text = "Limit Hit! "
+      when (displayCycleMode) {
+        0 -> {
+          titleView?.text = "Limit Hit! "
+          counterView?.text = "$count"
+        }
+        1 -> {
+          titleView?.text = "Today: "
+          counterView?.text = "$todayTotal/$dailyLimit"
+        }
+        else -> {
+          titleView?.text = "Time: "
+          counterView?.text = "${estimatedMins}m"
+        }
+      }
       titleView?.setTextColor(Color.parseColor("#FCA5A5"))
-      counterView?.text = "$count"
       counterView?.setTextColor(Color.parseColor("#EF4444"))
       backgroundDrawable?.setStroke(dpToPx(2), Color.parseColor("#EF4444"))
     } else {
-      iconView?.text = "🎬 "
-      titleView?.text = "$shortLabel: "
+      when (displayCycleMode) {
+        0 -> {
+          iconView?.text = "🎬 "
+          titleView?.text = "$shortLabel: "
+          counterView?.text = "$count"
+        }
+        1 -> {
+          iconView?.text = "🎯 "
+          titleView?.text = "Today: "
+          counterView?.text = "$todayTotal/$dailyLimit"
+        }
+        else -> {
+          iconView?.text = "⏱️ "
+          titleView?.text = "Time: "
+          counterView?.text = "${estimatedMins}m"
+        }
+      }
       titleView?.setTextColor(Color.parseColor("#B0C2B8"))
-      counterView?.text = "$count"
       counterView?.setTextColor(Color.parseColor("#38D39F"))
       backgroundDrawable?.setStroke(dpToPx(2), Color.parseColor("#38D39F"))
     }
+  }
+
+  private fun launchReelCountApp() {
+    try {
+      val intent = context.packageManager.getLaunchIntentForPackage(context.packageName)?.apply {
+        addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP)
+      }
+      if (intent != null) {
+        Toast.makeText(context, "🎬 Opening ReelCount Dashboard...", Toast.LENGTH_SHORT).show()
+        context.startActivity(intent)
+      }
+    } catch (_: Exception) {}
+  }
+
+  private fun triggerHaptic(durationMs: Long) {
+    try {
+      val vibrator = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+        val vm = context.getSystemService(Context.VIBRATOR_MANAGER_SERVICE) as? VibratorManager
+        vm?.defaultVibrator
+      } else {
+        @Suppress("DEPRECATION")
+        context.getSystemService(Context.VIBRATOR_SERVICE) as? Vibrator
+      }
+
+      if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+        vibrator?.vibrate(VibrationEffect.createOneShot(durationMs, VibrationEffect.DEFAULT_AMPLITUDE))
+      } else {
+        @Suppress("DEPRECATION")
+        vibrator?.vibrate(durationMs)
+      }
+    } catch (_: Exception) {}
   }
 
   fun hide() {
