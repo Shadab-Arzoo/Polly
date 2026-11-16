@@ -39,9 +39,9 @@ jobs:
       - name: Make Gradlew Executable
         run: chmod +x android/gradlew
 
-      - name: Build Debug APK
+      - name: Build Standalone Release APK
         working-directory: android
-        run: ./gradlew assembleDebug --no-daemon --console=plain
+        run: ./gradlew assembleRelease --no-daemon --console=plain
 
       - name: Create Release and Upload APK
         env:
@@ -49,7 +49,7 @@ jobs:
           GITHUB_SHA: ${{ github.sha }}
         run: |
           export VERSION="v0.2.${{ github.run_number }}"
-          export APK_FILE="android/app/build/outputs/apk/debug/app-debug.apk"
+          export APK_FILE="android/app/build/outputs/apk/release/app-release.apk"
           export RELEASE_APK="ReelCount-${VERSION}.apk"
           cp "$APK_FILE" "$RELEASE_APK"
 
