@@ -48,7 +48,11 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GITHUB_SHA: ${{ github.sha }}
         run: |
-          export VERSION="v0.2.${{ github.run_number }}"
+          if [[ "${{ github.ref }}" == refs/tags/* ]]; then
+            export VERSION="${GITHUB_REF#refs/tags/}"
+          else
+            export VERSION="v0.4.${{ github.run_number }}"
+          fi
           export APK_FILE="android/app/build/outputs/apk/release/app-release.apk"
           export RELEASE_APK="ReelCount-${VERSION}.apk"
           cp "$APK_FILE" "$RELEASE_APK"
@@ -59,7 +63,7 @@ jobs:
           python3 - << 'PYEOF'
           import os
 
-          version = os.environ.get("VERSION", "v0.2")
+          version = os.environ.get("VERSION", "v0.4")
           release_apk = os.environ.get("RELEASE_APK", "ReelCount.apk")
           commit_title = os.environ.get("COMMIT_TITLE", "Update")
           sha = os.environ.get("GITHUB_SHA", "")
@@ -70,15 +74,22 @@ jobs:
           - **Change**: {commit_title}
           - **Commit**: `{sha}`
 
-          ### ✨ Key Features Included:
-          - **Full UI/UX Overhaul**: Circular dynamic ring metric, dopamine risk gauge, interactive 7-day insight inspector, bedtime sleep shield, and 4-4-4 mindful box breathing.
-          - **Auto-Advance to Dashboard**: Instant recognition when accessibility service is active with smooth entry into the Home Dashboard.
-          - **True Native App Blocking**: Blocks target apps (Instagram, TikTok, YouTube, Snapchat) during Focus Sessions and automatically returns to Home (`GLOBAL_ACTION_HOME`).
-          - **Persistent Counting & 7-Day Bar Chart**: Local device storage saves counts across phone reboots and displays weekly usage trends on the dashboard.
-          - **Daily Limit Alerts & Notifications**: Push notification and red warning badge when your daily short limit is reached.
-          - **Draggable Floating HUD with Position Memory**: Real-time swipe counter remembers where you placed it on the screen.
-          - **Haptic Feedback**: Gentle vibration pulse on every detected short video scroll.
-          - **Custom App Icon**: Fresh emerald film-reel icon across all Android device resolutions.
+          ### ✨ Major Enhancements:
+          - **Liquid Glass Floating Capsule Dock**:
+            - Floating pill-shaped dock with translucent frosted obsidian glass, specular rim lighting, and ambient underglow.
+            - **Hold & Slide Gesture Navigation**: Continuous horizontal thumb scrubbing with real-time sliding indicator and haptic feedback.
+            - **Continuous Fisheye Magnification**: Gaussian wave magnification up to `1.30x` with `-8.5dp` elevation and velocity tilt.
+            - **Dynamic Island Preview Tooltip Capsule**: Real-time live status capsule hovering over active scrubbing.
+            - **Live Micro-Badges**: Today's video count, limits warning dot, and active focus shield countdown directly on dock tabs.
+            - **Long-Press Quick Shortcuts Hub**: Hold any tab for 400ms to open quick action shortcuts (1m reset breath, 15m focus sprint, limit adjusting, theme cycling).
+            - **Optical Shimmer & Touch Ripple**: Specular light refraction beam and liquid contact ripple waves.
+          - **Decluttered Minimal Dashboard**:
+            - Clean, simplified dashboard tab showing only core essentials: hero counter ring, dopamine gauge, 4-stat grid, platform breakdown, and 7-day rhythm chart.
+            - Organized secondary tools cleanly into Limits, Focus, and Settings tabs.
+          - **4-Slide Horizontal Onboarding Carousel**:
+            - Paged swipe carousel with minimal text, progress pagination dots, and 4 custom 16:9 Obsidian Mint 3D illustrations.
+          - **Short Video Tracking Accuracy Fix**:
+            - Fixed scroll swipe detection in Instagram Reels, TikTok, and YouTube Shorts; eliminated false increments caused by opening comment sheets.
 
           ### 📥 Download & Installation Notes:
           1. Download the attached **`{release_apk}`** below directly to your Android phone.

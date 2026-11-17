@@ -5,12 +5,15 @@ import {
   Easing,
   Image,
   Modal,
+  PanResponder,
   Pressable,
   ScrollView,
   Share,
   StatusBar,
   StyleSheet,
   Text,
+  useWindowDimensions,
+  Vibration,
   View,
 } from 'react-native';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
@@ -22,6 +25,20 @@ import PrototypeSettings, {
 } from './src/native/PrototypeSettings';
 
 type Tab = 'counter' | 'timers' | 'block' | 'settings';
+
+const TABS: { id: Tab; label: string; icon: IconName }[] = [
+  { id: 'counter', label: 'Dashboard', icon: 'dashboard' },
+  { id: 'timers', label: 'Limits', icon: 'timer' },
+  { id: 'block', label: 'Focus', icon: 'shield' },
+  { id: 'settings', label: 'Settings', icon: 'settings' },
+];
+
+const TAB_INDEX_MAP: Record<Tab, number> = {
+  counter: 0,
+  timers: 1,
+  block: 2,
+  settings: 3,
+};
 type BreathePhase = 'Inhale' | 'Hold' | 'Exhale';
 type CravingTab = 'breathing' | 'delay' | 'grounding' | 'stroop';
 type HudStyle = 'pill' | 'dot' | 'warning_only';
@@ -32,6 +49,15 @@ type TriggerType = 'boredom' | 'stress' | 'procrastination' | 'habit' | 'fomo';
 
 
 function App() {
+  const { width: windowWidth } = useWindowDimensions();
+  const introScrollRef = useRef<any>(null);
+  const [currentIntroSlide, setCurrentIntroSlide] = useState(0);
+
+  const goToIntroSlide = (index: number) => {
+    setCurrentIntroSlide(index);
+    introScrollRef.current?.scrollTo({ x: index * (windowWidth || 360), animated: true });
+  };
+
   const [activeTab, setActiveTab] = useState<Tab>('counter');
   const [consentGiven, setConsentGiven] = useState(false);
   const [settingsError, setSettingsError] = useState(false);
@@ -172,6 +198,595 @@ function App() {
       ]).start();
     }
   }, [activeTab, tabFadeAnim, tabTranslateY]);
+
+  // Liquid Glass Pill Dock & Gesture Navigation
+  const [hoveredTabIndex, setHoveredTabIndex] = useState<number | null>(null);
+  const [isDraggingDock, setIsDraggingDock] = useState(false);
+  const [dockWidth, setDockWidth] = useState(windowWidth > 0 ? windowWidth - 28 : 340);
+  const dockWidthRef = useRef(dockWidth);
+  dockWidthRef.current = dockWidth;
+
+  const sliderAnim = useRef(new Animated.Value(TAB_INDEX_MAP[activeTab])).current;
+  const sliderScaleX = useRef(new Animated.Value(1.0)).current;
+  const sliderScaleY = useRef(new Animated.Value(1.0)).current;
+  const dockScale = useRef(new Animated.Value(1.0)).current;
+
+  // Floating Scrub Tooltip Capsule animations
+  const tooltipOpacity = useRef(new Animated.Value(0)).current;
+  const tooltipScale = useRef(new Animated.Value(0.82)).current;
+  const tooltipX = useRef(new Animated.Value(TAB_INDEX_MAP[activeTab])).current;
+
+  // Optical Crystal Shimmer Light Wave
+  const shimmerAnim = useRef(new Animated.Value(-1)).current;
+  const triggerDockShimmer = () => {
+    shimmerAnim.setValue(-1);
+    Animated.timing(shimmerAnim, {
+      toValue: 2,
+      duration: 650,
+      easing: Easing.out(Easing.cubic),
+      useNativeDriver: true,
+    }).start();
+  };
+
+  // Water Droplet Touch Ripple
+  const rippleAnim = useRef(new Animated.Value(0)).current;
+  const rippleOpacity = useRef(new Animated.Value(0)).current;
+  const [rippleCoord, setRippleCoord] = useState({ x: 0, y: 0 });
+
+  // Icon bounce animations
+  const iconBounceAnims = useRef([
+    new Animated.Value(1),
+    new Animated.Value(1),
+    new Animated.Value(1),
+    new Animated.Value(1),
+  ]).current;
+  const triggerIconBounce = (idx: number) => {
+    Animated.sequence([
+      Animated.spring(iconBounceAnims[idx], {
+        toValue: 1.32,
+        friction: 3.5,
+        tension: 180,
+        useNativeDriver: true,
+      }),
+      Animated.spring(iconBounceAnims[idx], {
+        toValue: 1.0,
+        friction: 5,
+        tension: 140,
+        useNativeDriver: true,
+      }),
+    ]).start();
+  };
+
+  // Long-Press Quick Action Palette
+  const [quickActionTab, setQuickActionTab] = useState<number | null>(null);
+  const quickActionScale = useRef(new Animated.Value(0)).current;
+  const quickActionOpacity = useRef(new Animated.Value(0)).current;
+  const longPressTimerRef = useRef<any>(null);
+
+  const closeQuickActions = () => {
+    Animated.parallel([
+      Animated.timing(quickActionOpacity, {
+        toValue: 0,
+        duration: 150,
+        useNativeDriver: true,
+      }),
+      Animated.timing(quickActionScale, {
+        toValue: 0.8,
+        duration: 150,
+        useNativeDriver: true,
+      }),
+    ]).start(() => setQuickActionTab(null));
+  };
+
+  const openQuickActions = (idx: number) => {
+    try {
+      Vibration.vibrate([0, 15, 30, 20]);
+    } catch (_) {}
+    setQuickActionTab(idx);
+    quickActionScale.setValue(0.75);
+    quickActionOpacity.setValue(0);
+    Animated.parallel([
+      Animated.spring(quickActionScale, {
+        toValue: 1.0,
+        friction: 6,
+        tension: 150,
+        useNativeDriver: true,
+      }),
+      Animated.timing(quickActionOpacity, {
+        toValue: 1,
+        duration: 150,
+        useNativeDriver: true,
+      }),
+    ]).start();
+  };
+
+  const nextThemeAccent = (): ThemeAccent => {
+    const themes: ThemeAccent[] = ['mint', 'cyan', 'amethyst', 'amber', 'monochrome'];
+    const currentIndex = themes.indexOf(themeAccent);
+    return themes[(currentIndex + 1) % themes.length];
+  };
+
+  const getQuickActionsForTab = (idx: number) => {
+    switch (idx) {
+      case 0:
+        return [
+          { label: '🧘 1m Reset Breath', action: () => openCravingModal('breathing') },
+          { label: '⚡ 15m Focus Sprint', action: () => handleQuickFocus15m() },
+          { label: '🔄 Reset Today (0)', action: () => handleResetCounters() },
+        ];
+      case 1:
+        return [
+          { label: '+5 Daily Limit', action: () => handleAdjustLimit(5) },
+          { label: '-5 Daily Limit', action: () => handleAdjustLimit(-5) },
+          {
+            label: bedtimeShield ? '☀️ Day Feeds' : '🌙 Bedtime Shield',
+            action: () => {
+              const n = !bedtimeShield;
+              setBedtimeShield(n);
+              PrototypeSettings.setBedtimeShield(n, 23, 6).catch(() => {});
+            },
+          },
+        ];
+      case 2:
+        return [
+          {
+            label: '🍅 25m Focus Sprint',
+            action: () => {
+              handleSelectFocusPreset(25);
+              handleToggleFocusSession();
+            },
+          },
+          { label: '🌊 90s Wave Surfer', action: () => openCravingModal('delay') },
+          {
+            label: '🧠 Stroop Urge Gate',
+            action: () => {
+              resetStroop();
+              openCravingModal('stroop');
+            },
+          },
+        ];
+      case 3:
+        return [
+          {
+            label: '🎨 Next Palette',
+            action: () => {
+              const next = nextThemeAccent();
+              setThemeAccent(next);
+              PrototypeSettings.setThemeAccent(next).catch(() => {});
+            },
+          },
+          {
+            label: '🛡️ Accessibility',
+            action: () => PrototypeSettings.openAccessibilitySettings(),
+          },
+          { label: '📤 Share Progress', action: () => shareMindfulProgress() },
+        ];
+      default:
+        return [];
+    }
+  };
+
+  // Resting pulsating breathing droplet indicator
+  const dropletPulseAnim = useRef(new Animated.Value(0)).current;
+  useEffect(() => {
+    const pulse = Animated.loop(
+      Animated.sequence([
+        Animated.timing(dropletPulseAnim, {
+          toValue: 1,
+          duration: 1300,
+          easing: Easing.inOut(Easing.quad),
+          useNativeDriver: true,
+        }),
+        Animated.timing(dropletPulseAnim, {
+          toValue: 0,
+          duration: 1300,
+          easing: Easing.inOut(Easing.quad),
+          useNativeDriver: true,
+        }),
+      ]),
+    );
+    pulse.start();
+    return () => pulse.stop();
+  }, [dropletPulseAnim]);
+
+  // 4 tabs scale, translateY, and tilt
+  const tabScaleAnims = useRef([
+    new Animated.Value(activeTab === 'counter' ? 1.12 : 1.0),
+    new Animated.Value(activeTab === 'timers' ? 1.12 : 1.0),
+    new Animated.Value(activeTab === 'block' ? 1.12 : 1.0),
+    new Animated.Value(activeTab === 'settings' ? 1.12 : 1.0),
+  ]).current;
+
+  const tabTranslateYAnims = useRef([
+    new Animated.Value(activeTab === 'counter' ? -3.5 : 0),
+    new Animated.Value(activeTab === 'timers' ? -3.5 : 0),
+    new Animated.Value(activeTab === 'block' ? -3.5 : 0),
+    new Animated.Value(activeTab === 'settings' ? -3.5 : 0),
+  ]).current;
+
+  const tabTiltAnims = useRef([
+    new Animated.Value(0),
+    new Animated.Value(0),
+    new Animated.Value(0),
+    new Animated.Value(0),
+  ]).current;
+
+  const triggerDockHaptic = () => {
+    try {
+      if (typeof Vibration?.vibrate === 'function') {
+        Vibration.vibrate(8);
+      }
+    } catch (_) {}
+  };
+
+  // Continuous Bell-Curve Fisheye Magnification
+  const applyContinuousFisheye = (fingerX: number, velocityX = 0) => {
+    const slotW = (dockWidthRef.current - 12) / 4;
+    for (let i = 0; i < 4; i++) {
+      const tabCenter = (i + 0.5) * slotW + 6;
+      const dist = Math.abs(fingerX - tabCenter) / slotW;
+      // Parabolic falloff factor
+      const factor = Math.max(0, 1 - Math.min(1, dist * 0.72));
+      const targetScale = 1.0 + factor * 0.30; // up to 1.30x at peak
+      const targetY = -factor * 8.5; // lifts up to -8.5dp
+      const tiltVal = Math.max(-8, Math.min(8, velocityX * 10));
+
+      Animated.parallel([
+        Animated.spring(tabScaleAnims[i], {
+          toValue: targetScale,
+          friction: 6,
+          tension: 140,
+          useNativeDriver: true,
+        }),
+        Animated.spring(tabTranslateYAnims[i], {
+          toValue: targetY,
+          friction: 6,
+          tension: 140,
+          useNativeDriver: true,
+        }),
+        Animated.spring(tabTiltAnims[i], {
+          toValue: dist < 1.0 ? tiltVal : 0,
+          friction: 5,
+          tension: 140,
+          useNativeDriver: true,
+        }),
+      ]).start();
+    }
+  };
+
+  const resetDockRestingState = (targetIdx: number) => {
+    tabScaleAnims.forEach((anim, i) => {
+      Animated.spring(anim, {
+        toValue: i === targetIdx ? 1.12 : 1.0,
+        friction: 6,
+        tension: 110,
+        useNativeDriver: true,
+      }).start();
+      Animated.spring(tabTranslateYAnims[i], {
+        toValue: i === targetIdx ? -3.5 : 0,
+        friction: 6,
+        tension: 110,
+        useNativeDriver: true,
+      }).start();
+      Animated.spring(tabTiltAnims[i], {
+        toValue: 0,
+        friction: 5,
+        tension: 120,
+        useNativeDriver: true,
+      }).start();
+    });
+  };
+
+  useEffect(() => {
+    const targetIdx = TAB_INDEX_MAP[activeTab];
+    triggerDockShimmer();
+    triggerIconBounce(targetIdx);
+
+    Animated.parallel([
+      Animated.spring(sliderAnim, {
+        toValue: targetIdx,
+        friction: 6.5,
+        tension: 85,
+        useNativeDriver: true,
+      }),
+      Animated.sequence([
+        Animated.parallel([
+          Animated.timing(sliderScaleX, {
+            toValue: 1.18,
+            duration: 85,
+            easing: Easing.out(Easing.quad),
+            useNativeDriver: true,
+          }),
+          Animated.timing(sliderScaleY, {
+            toValue: 0.90,
+            duration: 85,
+            easing: Easing.out(Easing.quad),
+            useNativeDriver: true,
+          }),
+        ]),
+        Animated.parallel([
+          Animated.spring(sliderScaleX, {
+            toValue: 1.0,
+            friction: 5,
+            tension: 110,
+            useNativeDriver: true,
+          }),
+          Animated.spring(sliderScaleY, {
+            toValue: 1.0,
+            friction: 5,
+            tension: 110,
+            useNativeDriver: true,
+          }),
+        ]),
+      ]),
+    ]).start();
+
+    if (!isDraggingDock) {
+      resetDockRestingState(targetIdx);
+    }
+  }, [activeTab]);
+
+  const touchStartX = useRef(0);
+  const currentHoveredIdxRef = useRef(TAB_INDEX_MAP[activeTab]);
+  const isDragActiveRef = useRef(false);
+
+  const getScrubTooltipInfo = (idx: number) => {
+    switch (idx) {
+      case 0:
+        return {
+          icon: 'dashboard' as IconName,
+          title: 'Dashboard',
+          sub: `${totalShorts} reels today · ${progressPercent}% cap`,
+          accent: isOverLimit ? '#ef4444' : currentTheme.primary,
+        };
+      case 1:
+        return {
+          icon: 'timer' as IconName,
+          title: 'Habit Limits',
+          sub: `${dailyLimit} reels · ${dailyTimeLimitMin}m daily time cap`,
+          accent: currentTheme.primary,
+        };
+      case 2:
+        return {
+          icon: 'shield' as IconName,
+          title: 'Focus Shield',
+          sub: focusTimerRunning
+            ? `${formatTimer(focusTimerSeconds)} remaining · Feeds locked`
+            : 'Deep focus shield ready to activate',
+          accent: focusTimerRunning ? '#ef4444' : currentTheme.primary,
+        };
+      case 3:
+        return {
+          icon: 'settings' as IconName,
+          title: 'Wellbeing Growth',
+          sub: `Lvl ${zenLevel.level} Zen · ${zenXp} XP · System Health`,
+          accent: currentTheme.primary,
+        };
+      default:
+        return {
+          icon: 'dashboard' as IconName,
+          title: 'Dashboard',
+          sub: `${totalShorts} videos today`,
+          accent: currentTheme.primary,
+        };
+    }
+  };
+
+  const dockPanResponder = useRef(
+    PanResponder.create({
+      onStartShouldSetPanResponder: () => true,
+      onMoveShouldSetPanResponder: (_, gesture) =>
+        Math.abs(gesture.dx) > 3 || Math.abs(gesture.dy) > 3,
+      onPanResponderGrant: (evt) => {
+        isDragActiveRef.current = true;
+        setIsDraggingDock(true);
+        touchStartX.current = evt.nativeEvent.locationX;
+        const slotW = dockWidthRef.current / 4;
+        const idx = Math.max(0, Math.min(3, Math.floor(touchStartX.current / slotW)));
+        currentHoveredIdxRef.current = idx;
+        setHoveredTabIndex(idx);
+
+        triggerDockHaptic();
+
+        // Touch ripple animation
+        setRippleCoord({ x: evt.nativeEvent.locationX, y: evt.nativeEvent.locationY });
+        rippleAnim.setValue(0);
+        rippleOpacity.setValue(0.5);
+        Animated.parallel([
+          Animated.timing(rippleAnim, {
+            toValue: 1,
+            duration: 400,
+            easing: Easing.out(Easing.quad),
+            useNativeDriver: true,
+          }),
+          Animated.timing(rippleOpacity, {
+            toValue: 0,
+            duration: 400,
+            easing: Easing.out(Easing.quad),
+            useNativeDriver: true,
+          }),
+        ]).start();
+
+        // Start long-press timer for Quick Actions Menu
+        clearTimeout(longPressTimerRef.current);
+        longPressTimerRef.current = setTimeout(() => {
+          if (isDragActiveRef.current) {
+            openQuickActions(idx);
+          }
+        }, 420);
+
+        // 3D Press Down Effect on dock container
+        Animated.spring(dockScale, {
+          toValue: 0.982,
+          friction: 6,
+          tension: 160,
+          useNativeDriver: true,
+        }).start();
+
+        // Reveal Scrub Tooltip Capsule
+        tooltipX.setValue(idx);
+        Animated.parallel([
+          Animated.spring(tooltipScale, {
+            toValue: 1.0,
+            friction: 6,
+            tension: 130,
+            useNativeDriver: true,
+          }),
+          Animated.timing(tooltipOpacity, {
+            toValue: 1,
+            duration: 140,
+            useNativeDriver: true,
+          }),
+        ]).start();
+
+        applyContinuousFisheye(touchStartX.current, 0);
+
+        Animated.spring(sliderAnim, {
+          toValue: idx,
+          friction: 6,
+          tension: 140,
+          useNativeDriver: true,
+        }).start();
+      },
+      onPanResponderMove: (_, gesture) => {
+        if (!isDragActiveRef.current) return;
+        if (Math.abs(gesture.dx) > 10 || Math.abs(gesture.dy) > 10) {
+          clearTimeout(longPressTimerRef.current);
+        }
+
+        const currentX = touchStartX.current + gesture.dx;
+        const slotW = dockWidthRef.current / 4;
+        const clampedX = Math.max(0, Math.min(dockWidthRef.current - 1, currentX));
+        const idx = Math.max(0, Math.min(3, Math.floor(clampedX / slotW)));
+
+        // Continuous Fluid Tracking for Slider & Tooltip
+        const fractionalPos = Math.max(0, Math.min(3, clampedX / slotW - 0.5));
+        Animated.spring(sliderAnim, {
+          toValue: fractionalPos,
+          friction: 7,
+          tension: 140,
+          useNativeDriver: true,
+        }).start();
+
+        Animated.spring(tooltipX, {
+          toValue: fractionalPos,
+          friction: 6.5,
+          tension: 140,
+          useNativeDriver: true,
+        }).start();
+
+        // Dynamic Mercury Stretch based on horizontal speed
+        const speedStretch = Math.min(1.24, 1.0 + Math.abs(gesture.vx || 0) * 0.15);
+        sliderScaleX.setValue(speedStretch);
+
+        // Continuous fisheye magnification
+        applyContinuousFisheye(clampedX, gesture.vx || 0);
+
+        if (idx !== currentHoveredIdxRef.current) {
+          currentHoveredIdxRef.current = idx;
+          setHoveredTabIndex(idx);
+          triggerDockHaptic();
+        }
+      },
+      onPanResponderRelease: (_, gesture) => {
+        clearTimeout(longPressTimerRef.current);
+        isDragActiveRef.current = false;
+        setIsDraggingDock(false);
+        const slotW = dockWidthRef.current / 4;
+        let finalIdx: number;
+
+        if (Math.abs(gesture.dx) < 6 && Math.abs(gesture.dy) < 6) {
+          // Tap / click
+          finalIdx = Math.max(0, Math.min(3, Math.floor(touchStartX.current / slotW)));
+        } else {
+          // Drag / slide release
+          const currentX = touchStartX.current + gesture.dx;
+          const clampedX = Math.max(0, Math.min(dockWidthRef.current - 1, currentX));
+          finalIdx = Math.max(0, Math.min(3, Math.floor(clampedX / slotW)));
+        }
+
+        const chosenTab = TABS[finalIdx].id;
+        setActiveTab(chosenTab);
+        setHoveredTabIndex(null);
+
+        // Release 3D compression
+        Animated.spring(dockScale, {
+          toValue: 1.0,
+          friction: 5,
+          tension: 120,
+          useNativeDriver: true,
+        }).start();
+
+        // Hide Scrub Tooltip
+        Animated.parallel([
+          Animated.timing(tooltipOpacity, {
+            toValue: 0,
+            duration: 160,
+            useNativeDriver: true,
+          }),
+          Animated.timing(tooltipScale, {
+            toValue: 0.82,
+            duration: 160,
+            useNativeDriver: true,
+          }),
+        ]).start();
+
+        // Snap slider into place with mercury bounce
+        Animated.parallel([
+          Animated.spring(sliderAnim, {
+            toValue: finalIdx,
+            friction: 6,
+            tension: 90,
+            useNativeDriver: true,
+          }),
+          Animated.sequence([
+            Animated.timing(sliderScaleX, {
+              toValue: 0.94,
+              duration: 70,
+              useNativeDriver: true,
+            }),
+            Animated.spring(sliderScaleX, {
+              toValue: 1.0,
+              friction: 5,
+              tension: 120,
+              useNativeDriver: true,
+            }),
+          ]),
+        ]).start();
+
+        resetDockRestingState(finalIdx);
+      },
+      onPanResponderTerminate: () => {
+        clearTimeout(longPressTimerRef.current);
+        isDragActiveRef.current = false;
+        setIsDraggingDock(false);
+        setHoveredTabIndex(null);
+        const activeIdx = TAB_INDEX_MAP[activeTab];
+
+        Animated.spring(dockScale, {
+          toValue: 1.0,
+          friction: 5,
+          tension: 120,
+          useNativeDriver: true,
+        }).start();
+
+        Animated.timing(tooltipOpacity, {
+          toValue: 0,
+          duration: 160,
+          useNativeDriver: true,
+        }).start();
+
+        Animated.spring(sliderAnim, {
+          toValue: activeIdx,
+          friction: 6,
+          tension: 90,
+          useNativeDriver: true,
+        }).start();
+
+        resetDockRestingState(activeIdx);
+      },
+    }),
+  ).current;
 
   // Mindful Box Breathing Scale Animation in Craving Modal
   const modalBreathAnim = useRef(new Animated.Value(1.0)).current;
@@ -989,198 +1604,339 @@ function App() {
     return `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
   };
 
-  // Render Intro & Permissions Screen
-  const renderIntroScreen = () => (
-    <ScrollView contentContainerStyle={styles.content}>
-      {/* Visual Hero Illustration */}
-      <Image
-        source={require('./src/assets/images/intro_mindful_focus.png')}
-        style={styles.introHeroIllustration}
-        resizeMode="cover"
-      />
+  // Render Intro & Permissions Screen - Horizontal Multi-Slide Carousel
+  const renderIntroScreen = () => {
+    const isLastSlide = currentIntroSlide === 3;
+    const slideWidth = windowWidth || 360;
 
-      <View style={styles.introHeader}>
-        <View style={[styles.brandBadgeIconWrap, { borderColor: currentTheme.border, backgroundColor: currentTheme.glow }]}>
-          <AppIcon name="reels" size={24} color={currentTheme.primary} />
-        </View>
-        <Text style={[styles.eyebrow, { color: currentTheme.primary }]}>REELCOUNT SANCTUARY</Text>
-        <Text style={styles.title}>Mindful Short Video Habits</Text>
-        <Text style={styles.introSummary}>
-          Quietly observe your short-form video consumption across Instagram Reels, TikTok, YouTube Shorts, and Snapchat so you notice doomscrolling before it takes over your day.
-        </Text>
-      </View>
-
-      {/* Feature Showcase Cards with Visual Graphics */}
-      <View style={styles.onboardingHighlights}>
-        <View style={styles.introCardWithImage}>
-          <Image
-            source={require('./src/assets/images/intro_swipe_hud.png')}
-            style={styles.introFeatureVisual}
-            resizeMode="cover"
-          />
-          <View style={styles.highlightItem}>
-            <View style={[styles.iconBadgePill, { borderColor: currentTheme.border, backgroundColor: currentTheme.glow }]}>
-              <AppIcon name="dashboard" size={18} color={currentTheme.primary} />
+    return (
+      <View style={styles.introContainer}>
+        {/* Top Header Bar */}
+        <View style={styles.introTopBar}>
+          <View style={styles.introBrandRow}>
+            <View style={[styles.brandBadgeIconWrap, { borderColor: currentTheme.border, backgroundColor: currentTheme.glow }]}>
+              <AppIcon name="reels" size={18} color={currentTheme.primary} />
             </View>
-            <View style={styles.highlightInfo}>
-              <Text style={styles.highlightTitle}>Live Interactive HUD</Text>
-              <Text style={styles.highlightDesc}>Floating draggable pill pulses on every video swiped. Tap to view daily progress.</Text>
-            </View>
+            <Text style={styles.introBrandName}>ReelCount</Text>
           </View>
+
+          {!isLastSlide ? (
+            <Pressable
+              onPress={() => goToIntroSlide(3)}
+              style={[styles.introSkipPill, { borderColor: currentTheme.hairline }]}
+            >
+              <Text style={[styles.introSkipText, { color: currentTheme.primary }]}>Skip →</Text>
+            </Pressable>
+          ) : (
+            <Pressable
+              onPress={handleEnterDashboard}
+              style={[styles.introSkipPill, { borderColor: currentTheme.hairline }]}
+            >
+              <Text style={[styles.introSkipText, { color: currentTheme.primary }]}>Dashboard →</Text>
+            </Pressable>
+          )}
         </View>
 
-        <View style={styles.introCardWithImage}>
-          <Image
-            source={require('./src/assets/images/intro_zen_shield.png')}
-            style={styles.introFeatureVisual}
-            resizeMode="cover"
-          />
-          <View style={styles.highlightItem}>
-            <View style={[styles.iconBadgePill, { borderColor: currentTheme.border, backgroundColor: currentTheme.glow }]}>
-              <AppIcon name="shield" size={18} color={currentTheme.primary} />
-            </View>
-            <View style={styles.highlightInfo}>
-              <Text style={styles.highlightTitle}>Automatic Bedtime Shield</Text>
-              <Text style={styles.highlightDesc}>Locks addictive feeds between 11 PM and 6 AM so your sleep and recovery remain protected.</Text>
-            </View>
-          </View>
-        </View>
-
-        <View style={styles.highlightItem}>
-          <View style={[styles.iconBadgePill, { borderColor: currentTheme.border, backgroundColor: currentTheme.glow }]}>
-            <AppIcon name="zen" size={18} color={currentTheme.primary} />
-          </View>
-          <View style={styles.highlightInfo}>
-            <Text style={styles.highlightTitle}>3-Second Mindful Speedbump</Text>
-            <Text style={styles.highlightDesc}>Gentle reflex interrupter provides 3 seconds of conscious breath before entering feeds.</Text>
-          </View>
-        </View>
-
-        <View style={styles.highlightItem}>
-          <View style={[styles.iconBadgePill, { borderColor: currentTheme.border, backgroundColor: currentTheme.glow }]}>
-            <AppIcon name="lock" size={18} color={currentTheme.primary} />
-          </View>
-          <View style={styles.highlightInfo}>
-            <Text style={styles.highlightTitle}>100% On-Device & Private</Text>
-            <Text style={styles.highlightDesc}>Zero data sent to any servers. Never reads messages, passwords, or personal screen data.</Text>
-          </View>
-        </View>
-      </View>
-
-      <View style={styles.statusSection} accessibilityLiveRegion="polite">
-        <Text style={styles.sectionTitle}>Android Accessibility Service</Text>
-        <View
-          style={[
-            styles.statusBadge,
-            prototypeStatus.serviceConnected
-              ? [styles.statusBadgeActive, { borderColor: currentTheme.border, backgroundColor: currentTheme.glow }]
-              : styles.statusBadgeInactive,
-          ]}
+        {/* Horizontal Paging Carousel */}
+        <ScrollView
+          ref={introScrollRef}
+          horizontal
+          pagingEnabled
+          showsHorizontalScrollIndicator={false}
+          onMomentumScrollEnd={e => {
+            const page = Math.round(e.nativeEvent.contentOffset.x / slideWidth);
+            setCurrentIntroSlide(page);
+          }}
+          scrollEventThrottle={16}
+          style={styles.introPager}
         >
-          <Text
-            style={[
-              styles.statusBadgeText,
-              prototypeStatus.serviceConnected
-                ? [styles.statusBadgeTextActive, { color: currentTheme.primary }]
-                : styles.statusBadgeTextInactive,
-            ]}
+          {/* SLIDE 1: AWARENESS */}
+          <ScrollView
+            style={{ width: slideWidth }}
+            contentContainerStyle={styles.introSlideContent}
+            showsVerticalScrollIndicator={false}
           >
-            {prototypeStatus.serviceConnected
-              ? '● Accessibility Service Connected'
-              : '○ Service Not Enabled'}
-          </Text>
-        </View>
-        <Text style={styles.body}>
-          Session scroll events detected: {prototypeStatus.candidateCount}
-        </Text>
-        <Text style={styles.statusHint}>
-          The accessibility service allows ReelCount to observe short-video transitions in real-time. No screen content is ever read or stored.
-        </Text>
-      </View>
+            <View style={styles.introCardWrap}>
+              <Image
+                source={require('./src/assets/images/intro_slide_focus.jpg')}
+                style={styles.introHeroSlideImage}
+                resizeMode="cover"
+              />
+              <View style={styles.introSlideBody}>
+                <View style={styles.introEyebrowBadge}>
+                  <Text style={[styles.introEyebrowText, { color: currentTheme.primary }]}>
+                    STEP 1 OF 4 · MINDFULNESS
+                  </Text>
+                </View>
+                <Text style={styles.introSlideTitle}>Break the Doomscroll Loop</Text>
+                <Text style={styles.introSlideSubtitle}>
+                  Quietly observe short video scrolling across Instagram Reels, YouTube Shorts, and TikTok before hours slip away.
+                </Text>
 
-      {prototypeStatus.serviceConnected ? (
-        <View style={[styles.connectedCard, { borderColor: currentTheme.border }]}>
-          <View style={styles.connectedHeaderRow}>
-            <View style={[styles.connectedCheckCircle, { backgroundColor: currentTheme.primary }]}>
-              <AppIcon name="check" size={14} color="#000000" />
+                <View style={styles.introChipRow}>
+                  <View style={[styles.introFeatureChip, { borderColor: currentTheme.hairline, backgroundColor: currentTheme.surface }]}>
+                    <AppIcon name="reels" size={14} color={currentTheme.primary} />
+                    <Text style={styles.introChipText}>Multi-App Tracking</Text>
+                  </View>
+                  <View style={[styles.introFeatureChip, { borderColor: currentTheme.hairline, backgroundColor: currentTheme.surface }]}>
+                    <AppIcon name="zen" size={14} color={currentTheme.primary} />
+                    <Text style={styles.introChipText}>Mindful Speedbump</Text>
+                  </View>
+                  <View style={[styles.introFeatureChip, { borderColor: currentTheme.hairline, backgroundColor: currentTheme.surface }]}>
+                    <AppIcon name="trophy" size={14} color={currentTheme.primary} />
+                    <Text style={styles.introChipText}>Zen XP Level</Text>
+                  </View>
+                </View>
+              </View>
             </View>
-            <View style={styles.connectedHeaderTextWrap}>
-              <Text style={styles.connectedHeaderTitle}>Accessibility Active!</Text>
-              <Text style={styles.connectedHeaderSubtitle}>
-                ReelCount is live & ready to guard your focus
-              </Text>
+          </ScrollView>
+
+          {/* SLIDE 2: LIVE HUD */}
+          <ScrollView
+            style={{ width: slideWidth }}
+            contentContainerStyle={styles.introSlideContent}
+            showsVerticalScrollIndicator={false}
+          >
+            <View style={styles.introCardWrap}>
+              <Image
+                source={require('./src/assets/images/intro_slide_hud.jpg')}
+                style={styles.introHeroSlideImage}
+                resizeMode="cover"
+              />
+              <View style={styles.introSlideBody}>
+                <View style={styles.introEyebrowBadge}>
+                  <Text style={[styles.introEyebrowText, { color: currentTheme.primary }]}>
+                    STEP 2 OF 4 · TACTILE HUD
+                  </Text>
+                </View>
+                <Text style={styles.introSlideTitle}>Live On-Screen Swipe HUD</Text>
+                <Text style={styles.introSlideSubtitle}>
+                  A discrete floating pill hovers over your screen with gentle haptic ticks on every video you swipe.
+                </Text>
+
+                <View style={styles.introChipRow}>
+                  <View style={[styles.introFeatureChip, { borderColor: currentTheme.hairline, backgroundColor: currentTheme.surface }]}>
+                    <AppIcon name="dashboard" size={14} color={currentTheme.primary} />
+                    <Text style={styles.introChipText}>Draggable Anywhere</Text>
+                  </View>
+                  <View style={[styles.introFeatureChip, { borderColor: currentTheme.hairline, backgroundColor: currentTheme.surface }]}>
+                    <AppIcon name="flame" size={14} color={currentTheme.primary} />
+                    <Text style={styles.introChipText}>Haptic Tick</Text>
+                  </View>
+                  <View style={[styles.introFeatureChip, { borderColor: currentTheme.hairline, backgroundColor: currentTheme.surface }]}>
+                    <AppIcon name="bolt" size={14} color={currentTheme.primary} />
+                    <Text style={styles.introChipText}>Loop Nudge</Text>
+                  </View>
+                </View>
+              </View>
             </View>
+          </ScrollView>
+
+          {/* SLIDE 3: BEDTIME & FOCUS */}
+          <ScrollView
+            style={{ width: slideWidth }}
+            contentContainerStyle={styles.introSlideContent}
+            showsVerticalScrollIndicator={false}
+          >
+            <View style={styles.introCardWrap}>
+              <Image
+                source={require('./src/assets/images/intro_slide_shield.jpg')}
+                style={styles.introHeroSlideImage}
+                resizeMode="cover"
+              />
+              <View style={styles.introSlideBody}>
+                <View style={styles.introEyebrowBadge}>
+                  <Text style={[styles.introEyebrowText, { color: currentTheme.primary }]}>
+                    STEP 3 OF 4 · PROTECTION
+                  </Text>
+                </View>
+                <Text style={styles.introSlideTitle}>Night Shield & Focus Lock</Text>
+                <Text style={styles.introSlideSubtitle}>
+                  Automatic 11 PM bedtime lockdown and 1-tap focus shields keep distraction feeds strictly closed.
+                </Text>
+
+                <View style={styles.introChipRow}>
+                  <View style={[styles.introFeatureChip, { borderColor: currentTheme.hairline, backgroundColor: currentTheme.surface }]}>
+                    <AppIcon name="moon" size={14} color={currentTheme.primary} />
+                    <Text style={styles.introChipText}>11 PM Sleep Sanctuary</Text>
+                  </View>
+                  <View style={[styles.introFeatureChip, { borderColor: currentTheme.hairline, backgroundColor: currentTheme.surface }]}>
+                    <AppIcon name="shield" size={14} color={currentTheme.primary} />
+                    <Text style={styles.introChipText}>Strict App Exit</Text>
+                  </View>
+                  <View style={[styles.introFeatureChip, { borderColor: currentTheme.hairline, backgroundColor: currentTheme.surface }]}>
+                    <AppIcon name="lock" size={14} color={currentTheme.primary} />
+                    <Text style={styles.introChipText}>Quick Settings Tile</Text>
+                  </View>
+                </View>
+              </View>
+            </View>
+          </ScrollView>
+
+          {/* SLIDE 4: PRIVACY & PERMISSIONS */}
+          <ScrollView
+            style={{ width: slideWidth }}
+            contentContainerStyle={styles.introSlideContent}
+            showsVerticalScrollIndicator={false}
+          >
+            <View style={styles.introCardWrap}>
+              <Image
+                source={require('./src/assets/images/intro_slide_privacy.jpg')}
+                style={styles.introHeroSlideImage}
+                resizeMode="cover"
+              />
+              <View style={styles.introSlideBody}>
+                <View style={styles.introEyebrowBadge}>
+                  <Text style={[styles.introEyebrowText, { color: currentTheme.primary }]}>
+                    STEP 4 OF 4 · 100% PRIVATE
+                  </Text>
+                </View>
+                <Text style={styles.introSlideTitle}>Zero Cloud. 100% Local</Text>
+                <Text style={styles.introSlideSubtitle}>
+                  Zero network transmission. No screen content, chats, passwords, or personal data are ever read.
+                </Text>
+
+                {/* Service Status Badge */}
+                <View style={styles.statusSection} accessibilityLiveRegion="polite">
+                  <View
+                    style={[
+                      styles.statusBadge,
+                      prototypeStatus.serviceConnected
+                        ? [styles.statusBadgeActive, { borderColor: currentTheme.border, backgroundColor: currentTheme.glow }]
+                        : styles.statusBadgeInactive,
+                    ]}
+                  >
+                    <Text
+                      style={[
+                        styles.statusBadgeText,
+                        prototypeStatus.serviceConnected
+                          ? [styles.statusBadgeTextActive, { color: currentTheme.primary }]
+                          : styles.statusBadgeTextInactive,
+                      ]}
+                    >
+                      {prototypeStatus.serviceConnected
+                        ? '● Accessibility Service Connected'
+                        : '○ Service Not Enabled'}
+                    </Text>
+                  </View>
+                  <Text style={styles.body}>
+                    Session scroll events detected: {prototypeStatus.candidateCount}
+                  </Text>
+                </View>
+
+                {/* Consent Checkbox */}
+                <Pressable
+                  accessibilityRole="checkbox"
+                  accessibilityState={{ checked: consentGiven }}
+                  onPress={() => setConsentGiven(value => !value)}
+                  style={styles.consentRow}
+                >
+                  <View
+                    style={[
+                      styles.checkbox,
+                      consentGiven && [styles.checkboxChecked, { backgroundColor: currentTheme.primary, borderColor: currentTheme.primary }],
+                    ]}
+                  >
+                    {consentGiven ? <AppIcon name="check" size={12} color="#000000" /> : null}
+                  </View>
+                  <Text style={styles.consentText}>
+                    I understand ReelCount operates 100% locally on-device and choose to continue to Android accessibility settings.
+                  </Text>
+                </Pressable>
+
+                {/* Primary Button */}
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityState={{ disabled: !consentGiven }}
+                  disabled={!consentGiven}
+                  onPress={continueToSettings}
+                  style={[
+                    styles.button,
+                    { backgroundColor: consentGiven ? currentTheme.actionFill : '#141414', borderColor: consentGiven ? currentTheme.border : '#222222' },
+                    !consentGiven && styles.buttonDisabled,
+                  ]}
+                >
+                  <Text style={[styles.buttonText, { color: consentGiven ? currentTheme.actionText : '#666666' }]}>
+                    {prototypeStatus.serviceConnected
+                      ? 'Manage Accessibility Settings'
+                      : 'Continue to Accessibility Settings'}
+                  </Text>
+                </Pressable>
+
+                {settingsError ? (
+                  <Text accessibilityRole="alert" style={styles.error}>
+                    Android accessibility settings could not be opened. Please enable manually in Android Settings.
+                  </Text>
+                ) : null}
+
+                {/* Dashboard button */}
+                <Pressable
+                  onPress={handleEnterDashboard}
+                  style={[styles.enterDashboardButton, { borderColor: currentTheme.hairline, marginTop: 10 }]}
+                >
+                  <Text style={[styles.enterDashboardButtonText, { color: currentTheme.primary }]}>
+                    {prototypeStatus.serviceConnected ? 'Enter Sanctuary Dashboard →' : 'Skip to Dashboard →'}
+                  </Text>
+                </Pressable>
+              </View>
+            </View>
+          </ScrollView>
+        </ScrollView>
+
+        {/* Bottom Carousel Controls (Dots + Navigation) */}
+        <View style={[styles.introBottomControls, { borderTopColor: currentTheme.hairline, backgroundColor: currentTheme.surface }]}>
+          {/* Back button or placeholder */}
+          <View style={styles.introNavSide}>
+            {currentIntroSlide > 0 ? (
+              <Pressable onPress={() => goToIntroSlide(currentIntroSlide - 1)} style={styles.introBackButton}>
+                <Text style={styles.introBackText}>← Back</Text>
+              </Pressable>
+            ) : null}
           </View>
-          <Pressable
-            onPress={handleEnterDashboard}
-            style={[styles.primaryLaunchButton, { backgroundColor: currentTheme.actionFill, borderColor: currentTheme.border }]}
-          >
-            <Text style={[styles.primaryLaunchButtonText, { color: currentTheme.actionText }]}>
-              Enter Sanctuary Dashboard →
-            </Text>
-          </Pressable>
+
+          {/* Pagination Dots */}
+          <View style={styles.introPaginationRow}>
+            {[0, 1, 2, 3].map(idx => (
+              <Pressable
+                key={idx}
+                onPress={() => goToIntroSlide(idx)}
+                style={[
+                  styles.introPaginationDot,
+                  currentIntroSlide === idx
+                    ? [styles.introPaginationDotActive, { backgroundColor: currentTheme.primary, width: 22 }]
+                    : styles.introPaginationDotInactive,
+                ]}
+              />
+            ))}
+          </View>
+
+          {/* Next / Done button */}
+          <View style={styles.introNavSide}>
+            {!isLastSlide ? (
+              <Pressable
+                onPress={() => goToIntroSlide(currentIntroSlide + 1)}
+                style={[styles.introNextButton, { backgroundColor: currentTheme.actionFill, borderColor: currentTheme.border }]}
+              >
+                <Text style={[styles.introNextButtonText, { color: currentTheme.actionText }]}>Next →</Text>
+              </Pressable>
+            ) : (
+              <Pressable
+                onPress={handleEnterDashboard}
+                style={[styles.introNextButton, { backgroundColor: currentTheme.actionFill, borderColor: currentTheme.border }]}
+              >
+                <Text style={[styles.introNextButtonText, { color: currentTheme.actionText }]}>Done</Text>
+              </Pressable>
+            )}
+          </View>
         </View>
-      ) : null}
+      </View>
+    );
+  };
 
-      <Pressable
-        accessibilityRole="checkbox"
-        accessibilityState={{ checked: consentGiven }}
-        onPress={() => setConsentGiven(value => !value)}
-        style={styles.consentRow}
-      >
-        <View
-          style={[styles.checkbox, consentGiven && [styles.checkboxChecked, { backgroundColor: currentTheme.primary, borderColor: currentTheme.primary }]]}
-        >
-          {consentGiven ? <AppIcon name="check" size={12} color="#000000" /> : null}
-        </View>
-        <Text style={styles.consentText}>
-          I understand ReelCount operates 100% locally on-device and choose to continue to Android accessibility settings.
-        </Text>
-      </Pressable>
-
-      <Pressable
-        accessibilityRole="button"
-        accessibilityState={{ disabled: !consentGiven }}
-        disabled={!consentGiven}
-        onPress={continueToSettings}
-        style={[
-          styles.button,
-          { backgroundColor: consentGiven ? currentTheme.actionFill : '#141414', borderColor: consentGiven ? currentTheme.border : '#222222' },
-          !consentGiven && styles.buttonDisabled,
-        ]}
-      >
-        <Text style={[styles.buttonText, { color: consentGiven ? currentTheme.actionText : '#666666' }]}>
-          {prototypeStatus.serviceConnected
-            ? 'Manage Android Accessibility Settings'
-            : 'Continue to Accessibility Settings'}
-        </Text>
-      </Pressable>
-
-      <Text style={styles.settingsHint}>
-        The service remains off until you enable it in Android settings. You can turn it off there at any time.
-      </Text>
-
-      {settingsError ? (
-        <Text accessibilityRole="alert" style={styles.error}>
-          Android accessibility settings could not be opened. Please enable manually in Android Settings.
-        </Text>
-      ) : null}
-
-      <Pressable
-        onPress={handleEnterDashboard}
-        style={[styles.enterDashboardButton, { borderColor: currentTheme.hairline }]}
-      >
-        <Text style={[styles.enterDashboardButtonText, { color: currentTheme.primary }]}>
-          {prototypeStatus.serviceConnected ? 'Go to Home Dashboard →' : 'Skip to Dashboard →'}
-        </Text>
-      </Pressable>
-    </ScrollView>
-  );
-
-  // Render Dashboard / Counter Tab
+  // Render Dashboard / Counter Tab (Clean, Minimal, Focused on Daily Essentials)
   const renderCounterTab = () => (
     <ScrollView contentContainerStyle={styles.content}>
-      {/* Top App Header with Adaptive Greeting */}
+      {/* Top App Header with Adaptive Greeting & Live Service Status */}
       <View style={styles.dashboardHeader}>
         <View>
           <View style={styles.brandRow}>
@@ -1220,13 +1976,6 @@ function App() {
         </View>
       </View>
 
-      {/* Visual In-App Banner */}
-      <Image
-        source={require('./src/assets/images/dashboard_zen_banner.png')}
-        style={styles.dashboardHeroBanner}
-        resizeMode="cover"
-      />
-
       {/* Focus Mode Live Banner if running */}
       {focusTimerRunning && (
         <Pressable onPress={() => setActiveTab('block')} style={[styles.activeFocusBanner, { borderColor: currentTheme.border }]}>
@@ -1240,152 +1989,6 @@ function App() {
           <Text style={[styles.activeFocusBannerAction, { color: currentTheme.primary }]}>View →</Text>
         </Pressable>
       )}
-
-      {/* Daily Intention Anchor */}
-      <View style={styles.intentionCard}>
-        <View style={styles.intentionHeaderRow}>
-          <Text style={styles.intentionEyebrow}>DAILY COMPASS</Text>
-          <Text style={styles.intentionTag}>Conscious Intent</Text>
-        </View>
-        <Text style={styles.intentionText}>"{selectedIntention}"</Text>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.intentionPillsRow}>
-          {intentionsList.map(item => (
-            <Pressable
-              key={item.id}
-              onPress={() => {
-                setSelectedIntention(item.title);
-                PrototypeSettings.setUserIntention(item.title).catch(() => {});
-              }}
-              style={[
-                styles.intentionPill,
-                selectedIntention === item.title && styles.intentionPillSelected,
-              ]}
-            >
-              <Text style={styles.intentionPillIcon}>{item.icon}</Text>
-              <Text
-                style={[
-                  styles.intentionPillText,
-                  selectedIntention === item.title && styles.intentionPillTextSelected,
-                ]}
-              >
-                {item.title}
-              </Text>
-            </Pressable>
-          ))}
-        </ScrollView>
-      </View>
-
-      {/* Digital Wellbeing Vitality Score Banner */}
-      <View style={styles.vitalityCard}>
-        <View style={styles.vitalityLeftCol}>
-          <Text style={styles.vitalityEyebrow}>DIGITAL WELLBEING VITALITY</Text>
-          <View style={styles.vitalityScoreRow}>
-            <Text style={styles.vitalityScoreNum}>{vitalityScore}</Text>
-            <Text style={styles.vitalityScoreMax}>/ 100</Text>
-          </View>
-          <Text style={styles.vitalityStatusText}>
-            {vitalityScore >= 85
-              ? '🌟 Optimal Flow — High clarity & minimal reflex distraction'
-              : vitalityScore >= 65
-              ? '🌱 Healthy Balance — Good awareness; keep under daily cap'
-              : '⚡ High Dopamine Drag — Engage Craving SOS to reset'}
-          </Text>
-        </View>
-        <View style={styles.vitalityRingWrap}>
-          <View
-            style={[
-              styles.vitalityMiniRing,
-              vitalityScore >= 85
-                ? styles.vitalityRingHigh
-                : vitalityScore >= 65
-                ? styles.vitalityRingMed
-                : styles.vitalityRingLow,
-            ]}
-          >
-            <Text style={styles.vitalityRingIcon}>
-              {vitalityScore >= 85 ? '✨' : vitalityScore >= 65 ? '🌿' : '⚡'}
-            </Text>
-          </View>
-        </View>
-      </View>
-
-      {/* Attention Mastery & Zen XP Card */}
-      <View style={styles.masteryCard}>
-        <View style={styles.masteryTopRow}>
-          <View style={styles.masteryBadgeRow}>
-            <Text style={styles.masteryLevelIcon}>{zenLevel.icon}</Text>
-            <View>
-              <Text style={styles.masteryEyebrow}>ATTENTION MASTERY · LEVEL {zenLevel.level}</Text>
-              <Text style={styles.masteryTitle}>{zenLevel.title}</Text>
-            </View>
-          </View>
-          <View style={styles.masteryXpPill}>
-            <Text style={styles.masteryXpText}>{zenXp} XP</Text>
-          </View>
-        </View>
-
-        {/* Progress Bar */}
-        <View style={styles.masteryProgressTrack}>
-          <View style={[styles.masteryProgressFill, { width: `${xpPercent}%` }]} />
-        </View>
-        <View style={styles.masteryProgressLabels}>
-          <Text style={styles.masteryProgressSub}>
-            {xpInCurrentLevel} / {xpNeededForLevel} XP in tier ({xpPercent}%)
-          </Text>
-          <Text style={styles.masteryProgressNext}>Next: Lvl {Math.min(5, zenLevel.level + 1)}</Text>
-        </View>
-
-        {/* Daily Mindful Quests */}
-        <Text style={styles.questsHeader}>DAILY MINDFUL QUESTS</Text>
-        <View style={styles.questsGrid}>
-          <Pressable
-            onPress={() => {
-              if (!dailyQuestsClaimed.compass) {
-                setDailyQuestsClaimed(prev => ({ ...prev, compass: true }));
-                setZenXp(prev => prev + 20);
-                Alert.alert('Quest Complete! 🎯', '+20 XP added for setting your daily intention compass.');
-              }
-            }}
-            style={[styles.questItem, dailyQuestsClaimed.compass && styles.questItemDone]}
-          >
-            <Text style={styles.questIcon}>{dailyQuestsClaimed.compass ? '✓' : '🎯'}</Text>
-            <View style={styles.questInfo}>
-              <Text style={styles.questTitle}>Daily Compass</Text>
-              <Text style={styles.questReward}>+20 XP · Intent Set</Text>
-            </View>
-          </Pressable>
-
-          <Pressable
-            onPress={() => openCravingModal('stroop')}
-            style={[styles.questItem, dailyQuestsClaimed.reset && styles.questItemDone]}
-          >
-            <Text style={styles.questIcon}>{dailyQuestsClaimed.reset ? '✓' : '🧠'}</Text>
-            <View style={styles.questInfo}>
-              <Text style={styles.questTitle}>Stroop Reset</Text>
-              <Text style={styles.questReward}>+40 XP · Tap to Play</Text>
-            </View>
-          </Pressable>
-
-          <Pressable
-            onPress={handleQuickFocus15m}
-            style={[styles.questItem, (focusTimerRunning || dailyQuestsClaimed.shield) && styles.questItemDone]}
-          >
-            <Text style={styles.questIcon}>{focusTimerRunning || dailyQuestsClaimed.shield ? '✓' : '🛡️'}</Text>
-            <View style={styles.questInfo}>
-              <Text style={styles.questTitle}>Focus Shield</Text>
-              <Text style={styles.questReward}>+50 XP · 15m Sprint</Text>
-            </View>
-          </Pressable>
-
-          <View style={[styles.questItem, totalShorts <= dailyLimit && styles.questItemDone]}>
-            <Text style={styles.questIcon}>{totalShorts <= dailyLimit ? '✓' : '📉'}</Text>
-            <View style={styles.questInfo}>
-              <Text style={styles.questTitle}>Stay Under Cap</Text>
-              <Text style={styles.questReward}>+100 XP · At Midnight</Text>
-            </View>
-          </View>
-        </View>
-      </View>
 
       {/* Hero Counter Card */}
       <View style={[styles.heroCard, isOverLimit && styles.heroCardOverLimit]}>
@@ -1533,293 +2136,6 @@ function App() {
         )}
       </View>
 
-      {/* Craving SOS / Urge Surfer Action Banner */}
-      <View style={styles.cravingSosBanner}>
-        <View style={styles.cravingSosHeaderRow}>
-          <View style={styles.cravingSosBadge}>
-            <Text style={styles.cravingSosBadgeText}>⚡ CRAVING SOS</Text>
-          </View>
-          <Text style={styles.cravingSosWaveTag}>Impulse Interrupter</Text>
-        </View>
-        <Text style={styles.cravingSosTitle}>Feeling the urge to swipe?</Text>
-        <Text style={styles.cravingSosDesc}>
-          Urges peak in 90 seconds. Interrupt the reflex loop with breathwork, wave delay, or sensory grounding.
-        </Text>
-        <View style={styles.cravingSosBtnRow}>
-          <Pressable
-            onPress={() => openCravingModal('delay')}
-            style={styles.cravingSosPrimaryBtn}
-          >
-            <Text style={styles.cravingSosPrimaryBtnText}>🌊 90s Wave Surfer</Text>
-          </Pressable>
-          <Pressable
-            onPress={() => openCravingModal('breathing')}
-            style={styles.cravingSosSecondaryBtn}
-          >
-            <Text style={styles.cravingSosSecondaryBtnText}>🧘 4-4-4 Box Breath</Text>
-          </Pressable>
-          <Pressable
-            onPress={() => openCravingModal('grounding')}
-            style={styles.cravingSosSecondaryBtn}
-          >
-            <Text style={styles.cravingSosSecondaryBtnText}>🌿 Grounding</Text>
-          </Pressable>
-        </View>
-      </View>
-
-      {/* Life Reclaimed Beyond Screen Card */}
-      <View style={styles.sectionCard}>
-        <View style={styles.cardHeaderWithAction}>
-          <Text style={styles.cardSectionTitle}>🌱 Life Beyond Feeds</Text>
-          <Text style={styles.cardSelectedHighlight}>~{timeSavedMins}m Saved</Text>
-        </View>
-        <Text style={styles.cardSubtitle}>
-          Real-world experiences reclaimed compared to typical 90m doomscrolling.
-        </Text>
-        <View style={styles.lifeReclaimedGrid}>
-          <View style={styles.lifeReclaimedCard}>
-            <Text style={styles.lifeReclaimedIcon}>⏱️</Text>
-            <Text style={styles.lifeReclaimedValue}>~{timeSavedMins}m</Text>
-            <Text style={styles.lifeReclaimedLabel}>Time Reclaimed</Text>
-          </View>
-          <View style={styles.lifeReclaimedCard}>
-            <Text style={styles.lifeReclaimedIcon}>📚</Text>
-            <Text style={styles.lifeReclaimedValue}>{bookPagesEquivalent} pgs</Text>
-            <Text style={styles.lifeReclaimedLabel}>Book Reading Equiv</Text>
-          </View>
-          <View style={styles.lifeReclaimedCard}>
-            <Text style={styles.lifeReclaimedIcon}>🚶</Text>
-            <Text style={styles.lifeReclaimedValue}>{walkingStepsEquivalent}</Text>
-            <Text style={styles.lifeReclaimedLabel}>Physical Steps Equiv</Text>
-          </View>
-          <View style={styles.lifeReclaimedCard}>
-            <Text style={styles.lifeReclaimedIcon}>🧠</Text>
-            <Text style={styles.lifeReclaimedValue}>Grounded</Text>
-            <Text style={styles.lifeReclaimedLabel}>Dopamine State</Text>
-          </View>
-        </View>
-      </View>
-
-      {/* Chrono-Shield Vulnerability Analyzer */}
-      <View style={styles.sectionCard}>
-        <View style={styles.chronoHeaderRow}>
-          <Text style={styles.chronoIcon}>{chronoShield.icon}</Text>
-          <View style={styles.chronoTitleWrap}>
-            <View style={styles.chronoBadgeRow}>
-              <Text style={[styles.chronoLevelBadge, { color: chronoShield.badgeColor }]}>
-                {chronoShield.level.toUpperCase()}
-              </Text>
-            </View>
-            <Text style={styles.chronoTitle}>{chronoShield.title}</Text>
-          </View>
-        </View>
-        <Text style={styles.chronoAdviceText}>{chronoShield.advice}</Text>
-      </View>
-
-
-      {/* Mindful Intercept Gate - Neural Circuit Breaker */}
-      <View style={styles.interceptCard}>
-        <View style={styles.interceptTopRow}>
-          <Text style={styles.interceptEmoji}>🧠</Text>
-          <View style={styles.interceptTitleCol}>
-            <Text style={styles.interceptEyebrow}>NEURAL CIRCUIT BREAKER</Text>
-            <Text style={styles.interceptTitle}>Mindful Intercept Gate</Text>
-          </View>
-        </View>
-        <Text style={styles.interceptDesc}>
-          Compulsive scrolling is driven by autonomic basal-ganglia reflex. Engaging prefrontal color-word conflict breaks the dopamine urge.
-        </Text>
-        <Pressable
-          onPress={() => {
-            resetStroop();
-            openCravingModal('stroop');
-          }}
-          style={styles.interceptActionBtn}
-        >
-          <Text style={styles.interceptActionBtnText}>⚡ Challenge Urge with Stroop Test (+40 XP) →</Text>
-        </Pressable>
-      </View>
-
-      {/* 24-Hour Dopamine Matrix & Attention Clock */}
-      <View style={styles.sectionCard}>
-        <View style={styles.clockHeaderRow}>
-          <View>
-            <Text style={styles.cardSectionEyebrow}>CIRCADIAN DOPAMINE MATRIX</Text>
-            <Text style={styles.cardSectionTitle}>24-Hour Attention Clock</Text>
-          </View>
-          <View style={styles.liveNowPill}>
-            <View style={styles.liveNowDot} />
-            <Text style={styles.liveNowText}>Hour {new Date().getHours()}:00</Text>
-          </View>
-        </View>
-
-        {/* 24-Hour Scrollable Hourly Bar Dial */}
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.hourlyBarRow}>
-          {Array.from({ length: 24 }).map((_, h) => {
-            const prof = getHourDopamineProfile(h);
-            const isSelected = selectedDopamineHour === h;
-            const isCurrent = new Date().getHours() === h;
-
-            return (
-              <Pressable
-                key={h}
-                onPress={() => setSelectedDopamineHour(h)}
-                style={[
-                  styles.hourlyBarItem,
-                  isSelected && styles.hourlyBarItemSelected,
-                  isCurrent && styles.hourlyBarItemCurrent,
-                ]}
-              >
-                <Text style={[styles.hourlyBarHourText, isSelected && styles.hourlyBarTextActive]}>
-                  {h.toString().padStart(2, '0')}
-                </Text>
-                <View style={[styles.hourlyBarIndicator, { backgroundColor: prof.color }]} />
-                <Text style={styles.hourlyBarEmoji}>{prof.icon}</Text>
-              </Pressable>
-            );
-          })}
-        </ScrollView>
-
-        {/* Selected Hour Insight Card */}
-        <View style={[styles.hourInsightBox, { borderColor: selectedHourProfile.color }]}>
-          <View style={styles.hourInsightHeader}>
-            <Text style={styles.hourInsightIcon}>{selectedHourProfile.icon}</Text>
-            <View style={styles.hourInsightTitleCol}>
-              <Text style={styles.hourInsightTimeRange}>
-                {selectedDopamineHour.toString().padStart(2, '0')}:00 –{' '}
-                {((selectedDopamineHour + 1) % 24).toString().padStart(2, '0')}:00
-              </Text>
-              <Text style={[styles.hourInsightRisk, { color: selectedHourProfile.color }]}>
-                {selectedHourProfile.risk}
-              </Text>
-            </View>
-          </View>
-          <Text style={styles.hourInsightPeriodTitle}>{selectedHourProfile.period}</Text>
-          <Text style={styles.hourInsightTip}>{selectedHourProfile.tip}</Text>
-        </View>
-      </View>
-
-      {/* Impulse & Trigger Awareness Journal */}
-      <View style={styles.sectionCard}>
-        <View style={styles.triggerHeaderRow}>
-          <View>
-            <Text style={styles.cardSectionEyebrow}>SELF-AWARENESS TRACKER</Text>
-            <Text style={styles.cardSectionTitle}>Why did you reach for feeds?</Text>
-          </View>
-          <Text style={styles.triggerXpHint}>+10 XP / log</Text>
-        </View>
-        <Text style={styles.triggerSubText}>
-          Logging the emotion behind the impulse disarms unconscious muscle memory.
-        </Text>
-
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.triggerPillsRow}>
-          {(Object.keys(TRIGGER_DATA) as TriggerType[]).map(t => {
-            const data = TRIGGER_DATA[t];
-            const isSelected = selectedTrigger === t;
-            const count = triggersLog[t] || 0;
-
-            return (
-              <Pressable
-                key={t}
-                onPress={() => handleLogTrigger(t)}
-                style={[styles.triggerPill, isSelected && styles.triggerPillSelected]}
-              >
-                <Text style={styles.triggerPillIcon}>{data.icon}</Text>
-                <Text style={[styles.triggerPillLabel, isSelected && styles.triggerPillLabelSelected]}>
-                  {data.label}
-                </Text>
-                <View style={styles.triggerCountBadge}>
-                  <Text style={styles.triggerCountBadgeText}>{count}</Text>
-                </View>
-              </Pressable>
-            );
-          })}
-        </ScrollView>
-
-        {/* Dynamic Behavioral Hack for Selected Trigger */}
-        <View style={styles.triggerAdviceCard}>
-          <Text style={styles.triggerAdviceEyebrow}>
-            {TRIGGER_DATA[selectedTrigger].icon} NEURO-REPLACEMENT PROTOCOL
-          </Text>
-          <Text style={styles.triggerAdviceBody}>{TRIGGER_DATA[selectedTrigger].advice}</Text>
-        </View>
-      </View>
-
-      {/* 7-Day Activity History Bar Chart */}
-      <View style={styles.sectionCard}>
-        <View style={styles.chartHeaderRow}>
-          <View>
-            <Text style={styles.cardSectionTitle}>Weekly Rhythm</Text>
-            <Text style={styles.chartSubtitle}>
-              Tap any column to inspect daily habits
-            </Text>
-          </View>
-          <View style={styles.chartAvgBadge}>
-            <Text style={styles.chartAvgBadgeText}>Avg: {dailyAverage}/day</Text>
-          </View>
-        </View>
-
-        <View style={styles.chartContainer}>
-          {dayHistory.length > 0
-            ? dayHistory.map((item, idx) => {
-                const maxCount = Math.max(1, ...dayHistory.map(d => d.count), dailyLimit);
-                const heightRatio = Math.min(item.count / maxCount, 1);
-                const isToday = item.label === 'Today' || idx === dayHistory.length - 1;
-                const exceeded = item.count >= dailyLimit;
-                const isSelected = selectedHistoryIndex === idx;
-
-                return (
-                  <Pressable
-                    key={item.date || idx}
-                    onPress={() => setSelectedHistoryIndex(idx === selectedHistoryIndex ? null : idx)}
-                    style={styles.barCol}
-                  >
-                    <Text style={[styles.barCountText, isSelected && styles.barCountTextSelected]}>
-                      {item.count > 0 ? item.count : '-'}
-                    </Text>
-                    <View style={[styles.barTrack, isSelected && styles.barTrackSelected]}>
-                      <View
-                        style={[
-                          styles.barFill,
-                          { height: `${Math.max(8, Math.round(heightRatio * 100))}%` },
-                          isToday && styles.barFillToday,
-                          exceeded && styles.barFillLimit,
-                        ]}
-                      />
-                    </View>
-                    <Text style={[styles.barLabel, isToday && styles.barLabelToday, isSelected && styles.barLabelSelected]}>
-                      {item.label}
-                    </Text>
-                  </Pressable>
-                );
-              })
-            : ['M', 'T', 'W', 'T', 'F', 'S', 'Today'].map((label, idx) => (
-                <View key={idx} style={styles.barCol}>
-                  <Text style={styles.barCountText}>-</Text>
-                  <View style={styles.barTrack}>
-                    <View style={[styles.barFill, styles.barPlaceholderFill]} />
-                  </View>
-                  <Text style={[styles.barLabel, idx === 6 && styles.barLabelToday]}>{label}</Text>
-                </View>
-              ))}
-        </View>
-
-        {/* Selected Day Insight Card */}
-        {selectedHistoryIndex !== null && dayHistory[selectedHistoryIndex] && (
-          <View style={styles.dayInsightCard}>
-            <Text style={styles.dayInsightTitle}>
-              📅 {dayHistory[selectedHistoryIndex].label} ({dayHistory[selectedHistoryIndex].date})
-            </Text>
-            <Text style={styles.dayInsightBody}>
-              Scrolled <Text style={styles.highlightText}>{dayHistory[selectedHistoryIndex].count} shorts</Text> (≈ {Math.round(dayHistory[selectedHistoryIndex].count * 0.5)} mins).{' '}
-              {dayHistory[selectedHistoryIndex].count <= dailyLimit
-                ? '🎯 Kept inside your healthy target!'
-                : `⚠️ Exceeded target by ${dayHistory[selectedHistoryIndex].count - dailyLimit} videos.`}
-            </Text>
-          </View>
-        )}
-      </View>
-
       {/* App-by-App Breakdown */}
       <View style={styles.sectionCard}>
         <View style={styles.cardHeaderWithAction}>
@@ -1943,110 +2259,91 @@ function App() {
         </View>
       </View>
 
-      {/* Mindful Milestones & Badges */}
+      {/* 7-Day Activity History Bar Chart */}
       <View style={styles.sectionCard}>
-        <View style={styles.cardHeaderWithAction}>
-          <Text style={styles.cardSectionTitle}>🏆 Mindful Milestones</Text>
-          <Text style={styles.cardSelectedHighlight}>
-            {milestones.filter(m => m.unlocked).length} of 4 Unlocked
-          </Text>
+        <View style={styles.chartHeaderRow}>
+          <View>
+            <Text style={styles.cardSectionTitle}>Weekly Rhythm</Text>
+            <Text style={styles.chartSubtitle}>
+              Tap any column to inspect daily habits
+            </Text>
+          </View>
+          <View style={styles.chartAvgBadge}>
+            <Text style={styles.chartAvgBadgeText}>Avg: {dailyAverage}/day</Text>
+          </View>
         </View>
-        <Text style={styles.cardSubtitle}>
-          Habit trophies celebrating impulse control and conscious digital presence.
-        </Text>
-        <View style={styles.milestonesGrid}>
-          {milestones.map(badge => (
-            <View
-              key={badge.id}
-              style={[
-                styles.milestoneBadgeCard,
-                badge.unlocked ? styles.milestoneUnlocked : styles.milestoneLocked,
-              ]}
-            >
-              <Text style={styles.milestoneIcon}>{badge.icon}</Text>
-              <Text
-                style={[
-                  styles.milestoneName,
-                  badge.unlocked ? styles.milestoneNameUnlocked : styles.milestoneNameLocked,
-                ]}
-              >
-                {badge.name}
-              </Text>
-              <Text style={styles.milestoneDesc}>{badge.desc}</Text>
-              <View
-                style={[
-                  styles.milestoneStatusTag,
-                  badge.unlocked ? styles.milestoneStatusTagUnlocked : styles.milestoneStatusTagLocked,
-                ]}
-              >
-                <Text
-                  style={[
-                    styles.milestoneStatusText,
-                    badge.unlocked ? styles.milestoneStatusTextUnlocked : styles.milestoneStatusTextLocked,
-                  ]}
-                >
-                  {badge.unlocked ? '✓ UNLOCKED' : '🔒 LOCKED'}
-                </Text>
-              </View>
-            </View>
-          ))}
-        </View>
-      </View>
 
-      {/* Floating HUD info */}
-      <View style={styles.tipCard}>
-        <View style={styles.tipHeaderRow}>
-          <Text style={styles.tipTitleIcon}>💡</Text>
-          <Text style={styles.tipTitle}>Live On-Screen Overlay HUD</Text>
-        </View>
-        <Text style={styles.tipText}>
-          When you open Instagram, TikTok, or YouTube, a draggable floating pill appears showing your reel count in real time and vibrates gently on every swipe.
-        </Text>
-      </View>
+        <View style={styles.chartContainer}>
+          {dayHistory.length > 0
+            ? dayHistory.map((item, idx) => {
+                const maxCount = Math.max(1, ...dayHistory.map(d => d.count), dailyLimit);
+                const heightRatio = Math.min(item.count / maxCount, 1);
+                const isToday = item.label === 'Today' || idx === dayHistory.length - 1;
+                const exceeded = item.count >= dailyLimit;
+                const isSelected = selectedHistoryIndex === idx;
 
-      {/* Daily Reflection & Mind Check-In */}
-      <View style={styles.sectionCard}>
-        <View style={styles.cardHeaderWithAction}>
-          <Text style={styles.cardSectionTitle}>🧠 Attention & Mood Check-In</Text>
-          <Text style={styles.cardSelectedHighlight}>
-            {todayMood ? moodsList.find(m => m.id === todayMood)?.label : 'Log Feeling'}
-          </Text>
+                return (
+                  <Pressable
+                    key={item.date || idx}
+                    onPress={() => setSelectedHistoryIndex(idx === selectedHistoryIndex ? null : idx)}
+                    style={styles.barCol}
+                  >
+                    <Text style={[styles.barCountText, isSelected && styles.barCountTextSelected]}>
+                      {item.count > 0 ? item.count : '-'}
+                    </Text>
+                    <View style={[styles.barTrack, isSelected && styles.barTrackSelected]}>
+                      <View
+                        style={[
+                          styles.barFill,
+                          { height: `${Math.max(8, Math.round(heightRatio * 100))}%` },
+                          isToday && styles.barFillToday,
+                          exceeded && styles.barFillLimit,
+                        ]}
+                      />
+                    </View>
+                    <Text style={[styles.barLabel, isToday && styles.barLabelToday, isSelected && styles.barLabelSelected]}>
+                      {item.label}
+                    </Text>
+                  </Pressable>
+                );
+              })
+            : ['M', 'T', 'W', 'T', 'F', 'S', 'Today'].map((label, idx) => (
+                <View key={idx} style={styles.barCol}>
+                  <Text style={styles.barCountText}>-</Text>
+                  <View style={styles.barTrack}>
+                    <View style={[styles.barFill, styles.barPlaceholderFill]} />
+                  </View>
+                  <Text style={[styles.barLabel, idx === 6 && styles.barLabelToday]}>{label}</Text>
+                </View>
+              ))}
         </View>
-        <Text style={styles.cardSubtitle}>
-          Reflect on how your cognitive energy and impulse clarity feel right now.
-        </Text>
-        <View style={styles.moodGrid}>
-          {moodsList.map(moodItem => (
-            <Pressable
-              key={moodItem.id}
-              onPress={() => {
-                setTodayMood(moodItem.id);
-                PrototypeSettings.setUserMood(moodItem.id).catch(() => {});
-              }}
-              style={[
-                styles.moodCard,
-                todayMood === moodItem.id && styles.moodCardSelected,
-              ]}
-            >
-              <Text style={styles.moodIcon}>{moodItem.icon}</Text>
-              <Text
-                style={[
-                  styles.moodLabel,
-                  todayMood === moodItem.id && styles.moodLabelSelected,
-                ]}
-              >
-                {moodItem.label}
-              </Text>
-            </Pressable>
-          ))}
-        </View>
-        {todayMood && (
-          <View style={styles.moodTipBox}>
-            <Text style={styles.moodTipText}>
-              💡 {moodsList.find(m => m.id === todayMood)?.tip}
+
+        {/* Selected Day Insight Card */}
+        {selectedHistoryIndex !== null && dayHistory[selectedHistoryIndex] && (
+          <View style={styles.dayInsightCard}>
+            <Text style={styles.dayInsightTitle}>
+              📅 {dayHistory[selectedHistoryIndex].label} ({dayHistory[selectedHistoryIndex].date})
+            </Text>
+            <Text style={styles.dayInsightBody}>
+              Scrolled <Text style={styles.highlightText}>{dayHistory[selectedHistoryIndex].count} shorts</Text> (≈ {Math.round(dayHistory[selectedHistoryIndex].count * 0.5)} mins).{' '}
+              {dayHistory[selectedHistoryIndex].count <= dailyLimit
+                ? '🎯 Kept inside your healthy target!'
+                : `⚠️ Exceeded target by ${dayHistory[selectedHistoryIndex].count - dailyLimit} videos.`}
             </Text>
           </View>
         )}
+      </View>
+
+      {/* Dock Quick Shortcuts Row */}
+      <View style={styles.dashboardShortcutsRow}>
+        <Pressable onPress={() => setActiveTab('block')} style={[styles.dashboardShortcutCard, { borderColor: currentTheme.hairline }]}>
+          <AppIcon name="shield" size={16} color={currentTheme.primary} />
+          <Text style={styles.dashboardShortcutTitle}>Focus & Craving SOS →</Text>
+        </Pressable>
+        <Pressable onPress={() => setActiveTab('timers')} style={[styles.dashboardShortcutCard, { borderColor: currentTheme.hairline }]}>
+          <AppIcon name="timer" size={16} color={currentTheme.primary} />
+          <Text style={styles.dashboardShortcutTitle}>Limits & Insights →</Text>
+        </Pressable>
       </View>
     </ScrollView>
   );
@@ -2054,9 +2351,9 @@ function App() {
   // Render Timers & Limits Tab
   const renderTimersTab = () => (
     <ScrollView contentContainerStyle={styles.content}>
-      <Text style={styles.tabScreenTitle}>App Timers & Limits</Text>
+      <Text style={styles.tabScreenTitle}>Limits & Insights</Text>
       <Text style={styles.tabScreenSubtitle}>
-        Set deliberate habit boundaries to keep your digital consumption healthy.
+        Set deliberate habit boundaries and observe your circadian attention rhythm.
       </Text>
 
       {/* Daily Scroll Limit */}
@@ -2144,6 +2441,144 @@ function App() {
           <Pressable onPress={() => handleAdjustTimeLimit(5)} style={styles.stepperBtn}>
             <Text style={styles.stepperBtnText}>+ 5m</Text>
           </Pressable>
+        </View>
+      </View>
+
+      {/* 24-Hour Dopamine Matrix & Attention Clock */}
+      <View style={styles.sectionCard}>
+        <View style={styles.clockHeaderRow}>
+          <View>
+            <Text style={styles.cardSectionEyebrow}>CIRCADIAN DOPAMINE MATRIX</Text>
+            <Text style={styles.cardSectionTitle}>24-Hour Attention Clock</Text>
+          </View>
+          <View style={styles.liveNowPill}>
+            <View style={styles.liveNowDot} />
+            <Text style={styles.liveNowText}>Hour {new Date().getHours()}:00</Text>
+          </View>
+        </View>
+
+        {/* 24-Hour Scrollable Hourly Bar Dial */}
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.hourlyBarRow}>
+          {Array.from({ length: 24 }).map((_, h) => {
+            const prof = getHourDopamineProfile(h);
+            const isSelected = selectedDopamineHour === h;
+            const isCurrent = new Date().getHours() === h;
+
+            return (
+              <Pressable
+                key={h}
+                onPress={() => setSelectedDopamineHour(h)}
+                style={[
+                  styles.hourlyBarItem,
+                  isSelected && styles.hourlyBarItemSelected,
+                  isCurrent && styles.hourlyBarItemCurrent,
+                ]}
+              >
+                <Text style={[styles.hourlyBarHourText, isSelected && styles.hourlyBarTextActive]}>
+                  {h.toString().padStart(2, '0')}
+                </Text>
+                <View style={[styles.hourlyBarIndicator, { backgroundColor: prof.color }]} />
+                <Text style={styles.hourlyBarEmoji}>{prof.icon}</Text>
+              </Pressable>
+            );
+          })}
+        </ScrollView>
+
+        {/* Selected Hour Insight Card */}
+        <View style={[styles.hourInsightBox, { borderColor: selectedHourProfile.color }]}>
+          <View style={styles.hourInsightHeader}>
+            <Text style={styles.hourInsightIcon}>{selectedHourProfile.icon}</Text>
+            <View style={styles.hourInsightTitleCol}>
+              <Text style={styles.hourInsightTimeRange}>
+                {selectedDopamineHour.toString().padStart(2, '0')}:00 –{' '}
+                {((selectedDopamineHour + 1) % 24).toString().padStart(2, '0')}:00
+              </Text>
+              <Text style={[styles.hourInsightRisk, { color: selectedHourProfile.color }]}>
+                {selectedHourProfile.risk}
+              </Text>
+            </View>
+          </View>
+          <Text style={styles.hourInsightPeriodTitle}>{selectedHourProfile.period}</Text>
+          <Text style={styles.hourInsightTip}>{selectedHourProfile.tip}</Text>
+        </View>
+      </View>
+
+      {/* Impulse & Trigger Awareness Journal */}
+      <View style={styles.sectionCard}>
+        <View style={styles.triggerHeaderRow}>
+          <View>
+            <Text style={styles.cardSectionEyebrow}>SELF-AWARENESS TRACKER</Text>
+            <Text style={styles.cardSectionTitle}>Why did you reach for feeds?</Text>
+          </View>
+          <Text style={styles.triggerXpHint}>+10 XP / log</Text>
+        </View>
+        <Text style={styles.triggerSubText}>
+          Logging the emotion behind the impulse disarms unconscious muscle memory.
+        </Text>
+
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.triggerPillsRow}>
+          {(Object.keys(TRIGGER_DATA) as TriggerType[]).map(t => {
+            const data = TRIGGER_DATA[t];
+            const isSelected = selectedTrigger === t;
+            const count = triggersLog[t] || 0;
+
+            return (
+              <Pressable
+                key={t}
+                onPress={() => handleLogTrigger(t)}
+                style={[styles.triggerPill, isSelected && styles.triggerPillSelected]}
+              >
+                <Text style={styles.triggerPillIcon}>{data.icon}</Text>
+                <Text style={[styles.triggerPillLabel, isSelected && styles.triggerPillLabelSelected]}>
+                  {data.label}
+                </Text>
+                <View style={styles.triggerCountBadge}>
+                  <Text style={styles.triggerCountBadgeText}>{count}</Text>
+                </View>
+              </Pressable>
+            );
+          })}
+        </ScrollView>
+
+        {/* Dynamic Behavioral Hack for Selected Trigger */}
+        <View style={styles.triggerAdviceCard}>
+          <Text style={styles.triggerAdviceEyebrow}>
+            {TRIGGER_DATA[selectedTrigger].icon} NEURO-REPLACEMENT PROTOCOL
+          </Text>
+          <Text style={styles.triggerAdviceBody}>{TRIGGER_DATA[selectedTrigger].advice}</Text>
+        </View>
+      </View>
+
+      {/* Life Reclaimed Beyond Screen Card */}
+      <View style={styles.sectionCard}>
+        <View style={styles.cardHeaderWithAction}>
+          <Text style={styles.cardSectionTitle}>🌱 Life Beyond Feeds</Text>
+          <Text style={styles.cardSelectedHighlight}>~{timeSavedMins}m Saved</Text>
+        </View>
+        <Text style={styles.cardSubtitle}>
+          Real-world experiences reclaimed compared to typical 90m doomscrolling.
+        </Text>
+        <View style={styles.lifeReclaimedGrid}>
+          <View style={styles.lifeReclaimedCard}>
+            <Text style={styles.lifeReclaimedIcon}>⏱️</Text>
+            <Text style={styles.lifeReclaimedValue}>~{timeSavedMins}m</Text>
+            <Text style={styles.lifeReclaimedLabel}>Time Reclaimed</Text>
+          </View>
+          <View style={styles.lifeReclaimedCard}>
+            <Text style={styles.lifeReclaimedIcon}>📚</Text>
+            <Text style={styles.lifeReclaimedValue}>{bookPagesEquivalent} pgs</Text>
+            <Text style={styles.lifeReclaimedLabel}>Book Reading Equiv</Text>
+          </View>
+          <View style={styles.lifeReclaimedCard}>
+            <Text style={styles.lifeReclaimedIcon}>🚶</Text>
+            <Text style={styles.lifeReclaimedValue}>{walkingStepsEquivalent}</Text>
+            <Text style={styles.lifeReclaimedLabel}>Physical Steps Equiv</Text>
+          </View>
+          <View style={styles.lifeReclaimedCard}>
+            <Text style={styles.lifeReclaimedIcon}>🧠</Text>
+            <Text style={styles.lifeReclaimedValue}>Grounded</Text>
+            <Text style={styles.lifeReclaimedLabel}>Dopamine State</Text>
+          </View>
         </View>
       </View>
 
@@ -2376,6 +2811,79 @@ function App() {
             <Text style={styles.focusResetButtonText}>Reset</Text>
           </Pressable>
         </View>
+      </View>
+
+      {/* Craving SOS / Urge Surfer Action Banner */}
+      <View style={styles.cravingSosBanner}>
+        <View style={styles.cravingSosHeaderRow}>
+          <View style={styles.cravingSosBadge}>
+            <Text style={styles.cravingSosBadgeText}>⚡ CRAVING SOS</Text>
+          </View>
+          <Text style={styles.cravingSosWaveTag}>Impulse Interrupter</Text>
+        </View>
+        <Text style={styles.cravingSosTitle}>Feeling the urge to swipe?</Text>
+        <Text style={styles.cravingSosDesc}>
+          Urges peak in 90 seconds. Interrupt the reflex loop with breathwork, wave delay, or sensory grounding.
+        </Text>
+        <View style={styles.cravingSosBtnRow}>
+          <Pressable
+            onPress={() => openCravingModal('delay')}
+            style={styles.cravingSosPrimaryBtn}
+          >
+            <Text style={styles.cravingSosPrimaryBtnText}>🌊 90s Wave Surfer</Text>
+          </Pressable>
+          <Pressable
+            onPress={() => openCravingModal('breathing')}
+            style={styles.cravingSosSecondaryBtn}
+          >
+            <Text style={styles.cravingSosSecondaryBtnText}>🧘 4-4-4 Box Breath</Text>
+          </Pressable>
+          <Pressable
+            onPress={() => openCravingModal('grounding')}
+            style={styles.cravingSosSecondaryBtn}
+          >
+            <Text style={styles.cravingSosSecondaryBtnText}>🌿 Grounding</Text>
+          </Pressable>
+        </View>
+      </View>
+
+      {/* Mindful Intercept Gate - Neural Circuit Breaker */}
+      <View style={styles.interceptCard}>
+        <View style={styles.interceptTopRow}>
+          <Text style={styles.interceptEmoji}>🧠</Text>
+          <View style={styles.interceptTitleCol}>
+            <Text style={styles.interceptEyebrow}>NEURAL CIRCUIT BREAKER</Text>
+            <Text style={styles.interceptTitle}>Mindful Intercept Gate</Text>
+          </View>
+        </View>
+        <Text style={styles.interceptDesc}>
+          Compulsive scrolling is driven by autonomic basal-ganglia reflex. Engaging prefrontal color-word conflict breaks the dopamine urge.
+        </Text>
+        <Pressable
+          onPress={() => {
+            resetStroop();
+            openCravingModal('stroop');
+          }}
+          style={styles.interceptActionBtn}
+        >
+          <Text style={styles.interceptActionBtnText}>⚡ Challenge Urge with Stroop Test (+40 XP) →</Text>
+        </Pressable>
+      </View>
+
+      {/* Chrono-Shield Vulnerability Analyzer */}
+      <View style={styles.sectionCard}>
+        <View style={styles.chronoHeaderRow}>
+          <Text style={styles.chronoIcon}>{chronoShield.icon}</Text>
+          <View style={styles.chronoTitleWrap}>
+            <View style={styles.chronoBadgeRow}>
+              <Text style={[styles.chronoLevelBadge, { color: chronoShield.badgeColor }]}>
+                {chronoShield.level.toUpperCase()}
+              </Text>
+            </View>
+            <Text style={styles.chronoTitle}>{chronoShield.title}</Text>
+          </View>
+        </View>
+        <Text style={styles.chronoAdviceText}>{chronoShield.advice}</Text>
       </View>
 
       {/* Per-App Distraction Locks */}
@@ -2666,10 +3174,251 @@ function App() {
   // Render Settings Tab
   const renderSettingsTab = () => (
     <ScrollView contentContainerStyle={styles.content}>
-      <Text style={styles.tabScreenTitle}>Settings & Privacy</Text>
+      <Text style={styles.tabScreenTitle}>Settings & Wellbeing Growth</Text>
       <Text style={styles.tabScreenSubtitle}>
-        System service status, permissions, and on-device privacy guarantee.
+        Cultivate attention mastery, review your vitality score, and manage device permissions.
       </Text>
+
+      {/* Attention Mastery & Zen XP Card */}
+      <View style={styles.masteryCard}>
+        <View style={styles.masteryTopRow}>
+          <View style={styles.masteryBadgeRow}>
+            <Text style={styles.masteryLevelIcon}>{zenLevel.icon}</Text>
+            <View>
+              <Text style={styles.masteryEyebrow}>ATTENTION MASTERY · LEVEL {zenLevel.level}</Text>
+              <Text style={styles.masteryTitle}>{zenLevel.title}</Text>
+            </View>
+          </View>
+          <View style={styles.masteryXpPill}>
+            <Text style={styles.masteryXpText}>{zenXp} XP</Text>
+          </View>
+        </View>
+
+        {/* Progress Bar */}
+        <View style={styles.masteryProgressTrack}>
+          <View style={[styles.masteryProgressFill, { width: `${xpPercent}%` }]} />
+        </View>
+        <View style={styles.masteryProgressLabels}>
+          <Text style={styles.masteryProgressSub}>
+            {xpInCurrentLevel} / {xpNeededForLevel} XP in tier ({xpPercent}%)
+          </Text>
+          <Text style={styles.masteryProgressNext}>Next: Lvl {Math.min(5, zenLevel.level + 1)}</Text>
+        </View>
+
+        {/* Daily Mindful Quests */}
+        <Text style={styles.questsHeader}>DAILY MINDFUL QUESTS</Text>
+        <View style={styles.questsGrid}>
+          <Pressable
+            onPress={() => {
+              if (!dailyQuestsClaimed.compass) {
+                setDailyQuestsClaimed(prev => ({ ...prev, compass: true }));
+                setZenXp(prev => prev + 20);
+                Alert.alert('Quest Complete! 🎯', '+20 XP added for setting your daily intention compass.');
+              }
+            }}
+            style={[styles.questItem, dailyQuestsClaimed.compass && styles.questItemDone]}
+          >
+            <Text style={styles.questIcon}>{dailyQuestsClaimed.compass ? '✓' : '🎯'}</Text>
+            <View style={styles.questInfo}>
+              <Text style={styles.questTitle}>Daily Compass</Text>
+              <Text style={styles.questReward}>+20 XP · Intent Set</Text>
+            </View>
+          </Pressable>
+
+          <Pressable
+            onPress={() => openCravingModal('stroop')}
+            style={[styles.questItem, dailyQuestsClaimed.reset && styles.questItemDone]}
+          >
+            <Text style={styles.questIcon}>{dailyQuestsClaimed.reset ? '✓' : '🧠'}</Text>
+            <View style={styles.questInfo}>
+              <Text style={styles.questTitle}>Stroop Reset</Text>
+              <Text style={styles.questReward}>+40 XP · Tap to Play</Text>
+            </View>
+          </Pressable>
+
+          <Pressable
+            onPress={handleQuickFocus15m}
+            style={[styles.questItem, (focusTimerRunning || dailyQuestsClaimed.shield) && styles.questItemDone]}
+          >
+            <Text style={styles.questIcon}>{focusTimerRunning || dailyQuestsClaimed.shield ? '✓' : '🛡️'}</Text>
+            <View style={styles.questInfo}>
+              <Text style={styles.questTitle}>Focus Shield</Text>
+              <Text style={styles.questReward}>+50 XP · 15m Sprint</Text>
+            </View>
+          </Pressable>
+
+          <View style={[styles.questItem, totalShorts <= dailyLimit && styles.questItemDone]}>
+            <Text style={styles.questIcon}>{totalShorts <= dailyLimit ? '✓' : '📉'}</Text>
+            <View style={styles.questInfo}>
+              <Text style={styles.questTitle}>Stay Under Cap</Text>
+              <Text style={styles.questReward}>+100 XP · At Midnight</Text>
+            </View>
+          </View>
+        </View>
+      </View>
+
+      {/* Digital Wellbeing Vitality Score Banner */}
+      <View style={styles.vitalityCard}>
+        <View style={styles.vitalityLeftCol}>
+          <Text style={styles.vitalityEyebrow}>DIGITAL WELLBEING VITALITY</Text>
+          <View style={styles.vitalityScoreRow}>
+            <Text style={styles.vitalityScoreNum}>{vitalityScore}</Text>
+            <Text style={styles.vitalityScoreMax}>/ 100</Text>
+          </View>
+          <Text style={styles.vitalityStatusText}>
+            {vitalityScore >= 85
+              ? '🌟 Optimal Flow — High clarity & minimal reflex distraction'
+              : vitalityScore >= 65
+              ? '🌱 Healthy Balance — Good awareness; keep under daily cap'
+              : '⚡ High Dopamine Drag — Engage Craving SOS to reset'}
+          </Text>
+        </View>
+        <View style={styles.vitalityRingWrap}>
+          <View
+            style={[
+              styles.vitalityMiniRing,
+              vitalityScore >= 85
+                ? styles.vitalityRingHigh
+                : vitalityScore >= 65
+                ? styles.vitalityRingMed
+                : styles.vitalityRingLow,
+            ]}
+          >
+            <Text style={styles.vitalityRingIcon}>
+              {vitalityScore >= 85 ? '✨' : vitalityScore >= 65 ? '🌿' : '⚡'}
+            </Text>
+          </View>
+        </View>
+      </View>
+
+      {/* Daily Intention Anchor */}
+      <View style={styles.intentionCard}>
+        <View style={styles.intentionHeaderRow}>
+          <Text style={styles.intentionEyebrow}>DAILY COMPASS</Text>
+          <Text style={styles.intentionTag}>Conscious Intent</Text>
+        </View>
+        <Text style={styles.intentionText}>"{selectedIntention}"</Text>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.intentionPillsRow}>
+          {intentionsList.map(item => (
+            <Pressable
+              key={item.id}
+              onPress={() => {
+                setSelectedIntention(item.title);
+                PrototypeSettings.setUserIntention(item.title).catch(() => {});
+              }}
+              style={[
+                styles.intentionPill,
+                selectedIntention === item.title && styles.intentionPillSelected,
+              ]}
+            >
+              <Text style={styles.intentionPillIcon}>{item.icon}</Text>
+              <Text
+                style={[
+                  styles.intentionPillText,
+                  selectedIntention === item.title && styles.intentionPillTextSelected,
+                ]}
+              >
+                {item.title}
+              </Text>
+            </Pressable>
+          ))}
+        </ScrollView>
+      </View>
+
+      {/* Daily Reflection & Mind Check-In */}
+      <View style={styles.sectionCard}>
+        <View style={styles.cardHeaderWithAction}>
+          <Text style={styles.cardSectionTitle}>🧠 Attention & Mood Check-In</Text>
+          <Text style={styles.cardSelectedHighlight}>
+            {todayMood ? moodsList.find(m => m.id === todayMood)?.label : 'Log Feeling'}
+          </Text>
+        </View>
+        <Text style={styles.cardSubtitle}>
+          Reflect on how your cognitive energy and impulse clarity feel right now.
+        </Text>
+        <View style={styles.moodGrid}>
+          {moodsList.map(moodItem => (
+            <Pressable
+              key={moodItem.id}
+              onPress={() => {
+                setTodayMood(moodItem.id);
+                PrototypeSettings.setUserMood(moodItem.id).catch(() => {});
+              }}
+              style={[
+                styles.moodCard,
+                todayMood === moodItem.id && styles.moodCardSelected,
+              ]}
+            >
+              <Text style={styles.moodIcon}>{moodItem.icon}</Text>
+              <Text
+                style={[
+                  styles.moodLabel,
+                  todayMood === moodItem.id && styles.moodLabelSelected,
+                ]}
+              >
+                {moodItem.label}
+              </Text>
+            </Pressable>
+          ))}
+        </View>
+        {todayMood && (
+          <View style={styles.moodTipBox}>
+            <Text style={styles.moodTipText}>
+              💡 {moodsList.find(m => m.id === todayMood)?.tip}
+            </Text>
+          </View>
+        )}
+      </View>
+
+      {/* Mindful Milestones & Badges */}
+      <View style={styles.sectionCard}>
+        <View style={styles.cardHeaderWithAction}>
+          <Text style={styles.cardSectionTitle}>🏆 Mindful Milestones</Text>
+          <Text style={styles.cardSelectedHighlight}>
+            {milestones.filter(m => m.unlocked).length} of 4 Unlocked
+          </Text>
+        </View>
+        <Text style={styles.cardSubtitle}>
+          Habit trophies celebrating impulse control and conscious digital presence.
+        </Text>
+        <View style={styles.milestonesGrid}>
+          {milestones.map(badge => (
+            <View
+              key={badge.id}
+              style={[
+                styles.milestoneBadgeCard,
+                badge.unlocked ? styles.milestoneUnlocked : styles.milestoneLocked,
+              ]}
+            >
+              <Text style={styles.milestoneIcon}>{badge.icon}</Text>
+              <Text
+                style={[
+                  styles.milestoneName,
+                  badge.unlocked ? styles.milestoneNameUnlocked : styles.milestoneNameLocked,
+                ]}
+              >
+                {badge.name}
+              </Text>
+              <Text style={styles.milestoneDesc}>{badge.desc}</Text>
+              <View
+                style={[
+                  styles.milestoneStatusTag,
+                  badge.unlocked ? styles.milestoneStatusTagUnlocked : styles.milestoneStatusTagLocked,
+                ]}
+              >
+                <Text
+                  style={[
+                    styles.milestoneStatusText,
+                    badge.unlocked ? styles.milestoneStatusTextUnlocked : styles.milestoneStatusTextLocked,
+                  ]}
+                >
+                  {badge.unlocked ? '✓ UNLOCKED' : '🔒 LOCKED'}
+                </Text>
+              </View>
+            </View>
+          ))}
+        </View>
+      </View>
 
       {/* Service Status Card */}
       <View style={styles.sectionCard}>
@@ -2774,6 +3523,17 @@ function App() {
         </View>
       </View>
 
+      {/* Floating HUD info */}
+      <View style={styles.tipCard}>
+        <View style={styles.tipHeaderRow}>
+          <Text style={styles.tipTitleIcon}>💡</Text>
+          <Text style={styles.tipTitle}>Live On-Screen Overlay HUD</Text>
+        </View>
+        <Text style={styles.tipText}>
+          When you open Instagram, TikTok, or YouTube, a draggable floating pill appears showing your reel count in real time and vibrates gently on every swipe.
+        </Text>
+      </View>
+
       {/* Theme Accent Customization */}
       <View style={styles.sectionCard}>
         <View style={styles.cardHeaderWithAction}>
@@ -2875,7 +3635,7 @@ function App() {
 
       {/* App Version Footer */}
       <View style={styles.footerCol}>
-        <Text style={styles.footerVersion}>ReelCount v0.3.0</Text>
+        <Text style={styles.footerVersion}>ReelCount v0.4.0</Text>
         <Text style={styles.footerTagline}>Mindful Digital Wellbeing Sanctuary</Text>
       </View>
     </ScrollView>
@@ -2906,79 +3666,366 @@ function App() {
               {activeTab === 'settings' && renderSettingsTab()}
             </Animated.View>
 
-            {/* Bottom Tab Bar */}
-            <View style={[styles.tabBar, { borderTopColor: currentTheme.hairline, backgroundColor: currentTheme.surface }]}>
+            {/* Quick Action Dismiss Backdrop */}
+            {quickActionTab !== null && (
               <Pressable
-                onPress={() => setActiveTab('counter')}
-                style={[
-                  styles.tabItem,
-                  activeTab === 'counter' && [styles.tabItemActive, { borderTopColor: currentTheme.primary, backgroundColor: currentTheme.glow }],
-                ]}
-              >
-                <AppIcon name="dashboard" size={20} color={activeTab === 'counter' ? currentTheme.primary : '#8aa395'} />
-                <Text
-                  style={[
-                    styles.tabLabel,
-                    activeTab === 'counter' && { color: currentTheme.primary, fontWeight: '800' },
-                  ]}
-                >
-                  Dashboard
-                </Text>
-              </Pressable>
+                onPress={closeQuickActions}
+                style={styles.dockBackdropDismiss}
+              />
+            )}
 
-              <Pressable
-                onPress={() => setActiveTab('timers')}
-                style={[
-                  styles.tabItem,
-                  activeTab === 'timers' && [styles.tabItemActive, { borderTopColor: currentTheme.primary, backgroundColor: currentTheme.glow }],
-                ]}
-              >
-                <AppIcon name="timer" size={20} color={activeTab === 'timers' ? currentTheme.primary : '#8aa395'} />
-                <Text
+            {/* Liquid Glass Pill Dock */}
+            <View style={styles.liquidDockWrap}>
+              {/* Long-Press Quick Action Palette */}
+              {quickActionTab !== null && (
+                <Animated.View
                   style={[
-                    styles.tabLabel,
-                    activeTab === 'timers' && { color: currentTheme.primary, fontWeight: '800' },
+                    styles.dockQuickActionMenu,
+                    {
+                      opacity: quickActionOpacity,
+                      transform: [{ scale: quickActionScale }],
+                      borderColor: currentTheme.border,
+                      backgroundColor: currentTheme.surface,
+                    },
                   ]}
                 >
-                  Limits
-                </Text>
-              </Pressable>
+                  <View style={styles.dockQuickActionHeader}>
+                    <Text style={[styles.dockQuickActionTitle, { color: currentTheme.primary }]}>
+                      ⚡ {TABS[quickActionTab].label} Quick Shortcuts
+                    </Text>
+                    <Pressable onPress={closeQuickActions} style={styles.dockQuickActionCloseBtn}>
+                      <Text style={styles.dockQuickActionCloseText}>✕</Text>
+                    </Pressable>
+                  </View>
+                  <View style={styles.dockQuickActionRow}>
+                    {getQuickActionsForTab(quickActionTab).map((act, i) => (
+                      <Pressable
+                        key={i}
+                        onPress={() => {
+                          triggerDockHaptic();
+                          act.action();
+                          closeQuickActions();
+                        }}
+                        style={[styles.dockQuickActionBtn, { borderColor: currentTheme.hairline, backgroundColor: currentTheme.glow }]}
+                      >
+                        <Text style={[styles.dockQuickActionBtnText, { color: currentTheme.primary }]}>
+                          {act.label}
+                        </Text>
+                      </Pressable>
+                    ))}
+                  </View>
+                </Animated.View>
+              )}
 
-              <Pressable
-                onPress={() => setActiveTab('block')}
+              {/* Dynamic Island Scrub Tooltip Preview Capsule */}
+              <Animated.View
+                pointerEvents="none"
                 style={[
-                  styles.tabItem,
-                  activeTab === 'block' && [styles.tabItemActive, { borderTopColor: currentTheme.primary, backgroundColor: currentTheme.glow }],
+                  styles.dockScrubTooltip,
+                  {
+                    opacity: tooltipOpacity,
+                    transform: [
+                      {
+                        translateX: tooltipX.interpolate({
+                          inputRange: [0, 1, 2, 3],
+                          outputRange: [
+                            -dockWidth * 0.36,
+                            -dockWidth * 0.12,
+                            dockWidth * 0.12,
+                            dockWidth * 0.36,
+                          ],
+                        }),
+                      },
+                      { scale: tooltipScale },
+                    ],
+                    borderColor: currentTheme.border,
+                    backgroundColor: currentTheme.surface,
+                  },
                 ]}
               >
-                <AppIcon name="shield" size={20} color={activeTab === 'block' ? currentTheme.primary : '#8aa395'} />
-                <Text
-                  style={[
-                    styles.tabLabel,
-                    activeTab === 'block' && { color: currentTheme.primary, fontWeight: '800' },
-                  ]}
-                >
-                  Focus
-                </Text>
-              </Pressable>
+                <View style={styles.dockTooltipRow}>
+                  <View style={[styles.dockTooltipIconWrap, { backgroundColor: currentTheme.glow, borderColor: currentTheme.border }]}>
+                    <AppIcon
+                      name={getScrubTooltipInfo(hoveredTabIndex ?? TAB_INDEX_MAP[activeTab]).icon}
+                      size={15}
+                      color={getScrubTooltipInfo(hoveredTabIndex ?? TAB_INDEX_MAP[activeTab]).accent}
+                    />
+                  </View>
+                  <View style={styles.dockTooltipTextWrap}>
+                    <Text style={[styles.dockTooltipTitle, { color: getScrubTooltipInfo(hoveredTabIndex ?? TAB_INDEX_MAP[activeTab]).accent }]}>
+                      {getScrubTooltipInfo(hoveredTabIndex ?? TAB_INDEX_MAP[activeTab]).title}
+                    </Text>
+                    <Text style={styles.dockTooltipSub} numberOfLines={1}>
+                      {getScrubTooltipInfo(hoveredTabIndex ?? TAB_INDEX_MAP[activeTab]).sub}
+                    </Text>
+                  </View>
+                </View>
+                {/* Micro pointer arrow */}
+                <View style={[styles.dockTooltipArrow, { borderTopColor: currentTheme.border }]} />
+              </Animated.View>
 
-              <Pressable
-                onPress={() => setActiveTab('settings')}
+              {/* Ambient Fluid Underglow that tracks slider position */}
+              <Animated.View
                 style={[
-                  styles.tabItem,
-                  activeTab === 'settings' && [styles.tabItemActive, { borderTopColor: currentTheme.primary, backgroundColor: currentTheme.glow }],
+                  styles.liquidDockGlowBackdrop,
+                  {
+                    width: (dockWidth - 12) / 4 + 24,
+                    transform: [
+                      {
+                        translateX: sliderAnim.interpolate({
+                          inputRange: [0, 1, 2, 3],
+                          outputRange: [
+                            -6,
+                            (dockWidth - 12) / 4 - 6,
+                            ((dockWidth - 12) / 4) * 2 - 6,
+                            ((dockWidth - 12) / 4) * 3 - 6,
+                          ],
+                        }),
+                      },
+                    ],
+                    backgroundColor: currentTheme.glow,
+                    borderColor: currentTheme.primary,
+                  },
                 ]}
+              />
+
+              {/* The Liquid Glass Capsule Dock */}
+              <Animated.View
+                style={[
+                  styles.liquidDockPill,
+                  {
+                    transform: [{ scale: dockScale }],
+                    borderColor: isDraggingDock ? currentTheme.primary : 'rgba(255, 255, 255, 0.18)',
+                  },
+                ]}
+                onLayout={(e) => {
+                  const w = e.nativeEvent.layout.width;
+                  if (w > 0 && Math.abs(w - dockWidthRef.current) > 2) {
+                    setDockWidth(w);
+                  }
+                }}
+                {...dockPanResponder.panHandlers}
               >
-                <AppIcon name="settings" size={20} color={activeTab === 'settings' ? currentTheme.primary : '#8aa395'} />
-                <Text
+                {/* Specular Top Rim Reflection Line */}
+                <View style={styles.dockSpecularHighlight} />
+
+                {/* Frosted Curved Sheen */}
+                <View style={styles.dockUpperSheen} />
+
+                {/* Optical Crystal Shimmer Light Wave */}
+                <Animated.View
+                  pointerEvents="none"
                   style={[
-                    styles.tabLabel,
-                    activeTab === 'settings' && { color: currentTheme.primary, fontWeight: '800' },
+                    styles.dockShimmerBeam,
+                    {
+                      transform: [
+                        {
+                          translateX: shimmerAnim.interpolate({
+                            inputRange: [-1, 2],
+                            outputRange: [-dockWidth * 0.8, dockWidth * 1.2],
+                          }),
+                        },
+                        { skewX: '-25deg' },
+                      ],
+                    },
+                  ]}
+                />
+
+                {/* Expanding Liquid Touch Ripple */}
+                <Animated.View
+                  pointerEvents="none"
+                  style={[
+                    styles.dockTouchRipple,
+                    {
+                      left: rippleCoord.x - 25,
+                      top: rippleCoord.y - 25,
+                      opacity: rippleOpacity,
+                      transform: [
+                        {
+                          scale: rippleAnim.interpolate({
+                            inputRange: [0, 1],
+                            outputRange: [0.3, 2.5],
+                          }),
+                        },
+                      ],
+                      borderColor: currentTheme.primary,
+                      backgroundColor: currentTheme.glow,
+                    },
+                  ]}
+                />
+
+                {/* Sliding Mercury Fluid Indicator Pill */}
+                <Animated.View
+                  style={[
+                    styles.liquidSliderPill,
+                    {
+                      width: (dockWidth - 12) / 4,
+                      transform: [
+                        {
+                          translateX: sliderAnim.interpolate({
+                            inputRange: [0, 1, 2, 3],
+                            outputRange: [
+                              0,
+                              (dockWidth - 12) / 4,
+                              ((dockWidth - 12) / 4) * 2,
+                              ((dockWidth - 12) / 4) * 3,
+                            ],
+                          }),
+                        },
+                        { scaleX: sliderScaleX },
+                        { scaleY: sliderScaleY },
+                      ],
+                      backgroundColor: currentTheme.glow,
+                      borderColor: isDraggingDock ? currentTheme.primary : currentTheme.border,
+                    },
                   ]}
                 >
-                  Settings
-                </Text>
-              </Pressable>
+                  <View style={styles.liquidSliderInnerShine} />
+                </Animated.View>
+
+                {/* 4 Tabs with Interactive Magnification & Live Micro-Badges */}
+                {TABS.map((tab, idx) => {
+                  const isTabActive = activeTab === tab.id;
+                  const isTabHovered = hoveredTabIndex === idx;
+
+                  return (
+                    <Animated.View
+                      key={tab.id}
+                      style={[
+                        styles.dockTabItem,
+                        {
+                          width: (dockWidth - 12) / 4,
+                          transform: [
+                            { scale: Animated.multiply(tabScaleAnims[idx], iconBounceAnims[idx]) },
+                            { translateY: tabTranslateYAnims[idx] },
+                            {
+                              rotate: tabTiltAnims[idx].interpolate({
+                                inputRange: [-10, 0, 10],
+                                outputRange: ['-10deg', '0deg', '10deg'],
+                              }),
+                            },
+                          ],
+                        },
+                      ]}
+                    >
+                      <View style={styles.dockIconContainer}>
+                        {/* Soft Glowing Neon Ring behind Active Icon */}
+                        {isTabActive && (
+                          <Animated.View
+                            style={[
+                              styles.dockActiveIconGlowRing,
+                              {
+                                borderColor: currentTheme.border,
+                                backgroundColor: currentTheme.glow,
+                                opacity: dropletPulseAnim.interpolate({
+                                  inputRange: [0, 1],
+                                  outputRange: [0.55, 0.95],
+                                }),
+                              },
+                            ]}
+                          />
+                        )}
+
+                        <AppIcon
+                          name={tab.icon}
+                          size={isTabHovered || isTabActive ? 22 : 20}
+                          color={
+                            isTabActive
+                              ? currentTheme.primary
+                              : isTabHovered
+                              ? '#ffffff'
+                              : '#7d9588'
+                          }
+                        />
+
+                        {/* Live Micro Status Badges */}
+                        {idx === 0 && (
+                          <View
+                            style={[
+                              styles.dockMicroBadge,
+                              isOverLimit
+                                ? styles.dockMicroBadgeDanger
+                                : { backgroundColor: currentTheme.glow, borderColor: currentTheme.border },
+                            ]}
+                          >
+                            <Text
+                              style={[
+                                styles.dockMicroBadgeText,
+                                isOverLimit ? styles.dockMicroBadgeTextDanger : { color: currentTheme.primary },
+                              ]}
+                            >
+                              {totalShorts}
+                            </Text>
+                          </View>
+                        )}
+
+                        {idx === 1 && (isOverLimit || isNearLimit) && (
+                          <View
+                            style={[
+                              styles.dockMicroDot,
+                              { backgroundColor: isOverLimit ? '#ef4444' : '#f59e0b' },
+                            ]}
+                          />
+                        )}
+
+                        {idx === 2 && focusTimerRunning && (
+                          <View style={styles.dockMicroShieldActiveBadge}>
+                            <Text style={styles.dockMicroShieldActiveText}>
+                              {Math.ceil(focusTimerSeconds / 60)}m
+                            </Text>
+                          </View>
+                        )}
+
+                        {idx === 3 && (
+                          <View style={[styles.dockMicroBadge, { backgroundColor: currentTheme.glow, borderColor: currentTheme.border }]}>
+                            <Text style={[styles.dockMicroBadgeText, { color: currentTheme.primary }]}>
+                              L{zenLevel.level}
+                            </Text>
+                          </View>
+                        )}
+                      </View>
+
+                      <Text
+                        style={[
+                          styles.dockTabLabel,
+                          isTabActive
+                            ? [styles.dockTabLabelActive, { color: currentTheme.primary }]
+                            : isTabHovered
+                            ? styles.dockTabLabelHovered
+                            : styles.dockTabLabelInactive,
+                        ]}
+                        numberOfLines={1}
+                      >
+                        {tab.label}
+                      </Text>
+
+                      {/* Living Breathing Active Droplet Indicator */}
+                      {isTabActive && (
+                        <Animated.View
+                          style={[
+                            styles.dockActiveDroplet,
+                            {
+                              backgroundColor: currentTheme.primary,
+                              transform: [
+                                {
+                                  scale: dropletPulseAnim.interpolate({
+                                    inputRange: [0, 1],
+                                    outputRange: [1.0, 1.45],
+                                  }),
+                                },
+                              ],
+                              opacity: dropletPulseAnim.interpolate({
+                                inputRange: [0, 1],
+                                outputRange: [0.75, 1.0],
+                              }),
+                            },
+                          ]}
+                        />
+                      )}
+                    </Animated.View>
+                  );
+                })}
+              </Animated.View>
             </View>
           </View>
         )}
@@ -3826,9 +4873,161 @@ const styles = StyleSheet.create({
   safeArea: { flex: 1, backgroundColor: '#000000' },
   mainContainer: { flex: 1, backgroundColor: '#000000' },
   mainAnimatedContainer: { flex: 1 },
-  content: { paddingHorizontal: 16, paddingTop: 14, paddingBottom: 95 },
+  content: { paddingHorizontal: 16, paddingTop: 14, paddingBottom: 115 },
 
   // Visual Assets & Banner Styles
+  introContainer: {
+    flex: 1,
+    backgroundColor: '#000000',
+    justifyContent: 'space-between',
+  },
+  introTopBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 20,
+    paddingTop: 8,
+    paddingBottom: 8,
+  },
+  introBrandRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  introBrandName: {
+    color: '#ffffff',
+    fontSize: 18,
+    fontWeight: '900',
+    letterSpacing: 0.5,
+  },
+  introSkipPill: {
+    paddingHorizontal: 14,
+    paddingVertical: 6,
+    borderRadius: 14,
+    borderWidth: 1,
+    backgroundColor: '#0b0e0c',
+  },
+  introSkipText: {
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  introPager: {
+    flex: 1,
+  },
+  introSlideContent: {
+    paddingHorizontal: 16,
+    paddingTop: 4,
+    paddingBottom: 16,
+  },
+  introCardWrap: {
+    backgroundColor: '#0b0e0c',
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: '#1a211d',
+    overflow: 'hidden',
+  },
+  introHeroSlideImage: {
+    width: '100%',
+    height: 220,
+    backgroundColor: '#000000',
+  },
+  introSlideBody: {
+    padding: 18,
+  },
+  introEyebrowBadge: {
+    alignSelf: 'flex-start',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 6,
+    backgroundColor: 'rgba(0, 229, 153, 0.08)',
+    marginBottom: 8,
+  },
+  introEyebrowText: {
+    fontSize: 11,
+    fontWeight: '800',
+    letterSpacing: 1.2,
+  },
+  introSlideTitle: {
+    color: '#f1f5f3',
+    fontSize: 23,
+    fontWeight: '900',
+    lineHeight: 29,
+    marginBottom: 8,
+  },
+  introSlideSubtitle: {
+    color: '#8aa395',
+    fontSize: 14,
+    lineHeight: 21,
+    marginBottom: 14,
+  },
+  introChipRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    marginTop: 4,
+  },
+  introFeatureChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 10,
+    borderWidth: 1,
+  },
+  introChipText: {
+    color: '#e1e9e4',
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  introBottomControls: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 20,
+    paddingVertical: 14,
+    borderTopWidth: 1,
+  },
+  introNavSide: {
+    width: 80,
+    alignItems: 'center',
+  },
+  introPaginationRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  introPaginationDot: {
+    height: 8,
+    borderRadius: 4,
+  },
+  introPaginationDotActive: {
+    width: 22,
+  },
+  introPaginationDotInactive: {
+    width: 8,
+    backgroundColor: '#222824',
+  },
+  introBackButton: {
+    paddingVertical: 8,
+    paddingHorizontal: 10,
+  },
+  introBackText: {
+    color: '#8aa395',
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  introNextButton: {
+    paddingVertical: 8,
+    paddingHorizontal: 18,
+    borderRadius: 16,
+    borderWidth: 1,
+  },
+  introNextButtonText: {
+    fontSize: 13,
+    fontWeight: '800',
+  },
+
   introHeroIllustration: {
     width: '100%',
     height: 210,
@@ -3966,6 +5165,30 @@ const styles = StyleSheet.create({
   },
   servicePillTextInactive: {
     color: '#8aa395',
+  },
+
+  // Dashboard Shortcuts Row
+  dashboardShortcutsRow: {
+    flexDirection: 'row',
+    gap: 10,
+    marginTop: 6,
+    marginBottom: 16,
+  },
+  dashboardShortcutCard: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    backgroundColor: '#0c120f',
+    paddingVertical: 12,
+    paddingHorizontal: 14,
+    borderRadius: 14,
+    borderWidth: 1,
+  },
+  dashboardShortcutTitle: {
+    color: '#e1e9e4',
+    fontSize: 12,
+    fontWeight: '700',
   },
 
   // Focus Banner
@@ -4892,44 +6115,325 @@ const styles = StyleSheet.create({
     marginTop: 3,
   },
 
-  // Bottom Tab Bar
-  tabBar: {
+  // Liquid Glass Pill Dock Styles
+  liquidDockWrap: {
     position: 'absolute',
+    bottom: 20,
+    left: 14,
+    right: 14,
+    alignItems: 'center',
+    zIndex: 99,
+  },
+  liquidDockGlowBackdrop: {
+    position: 'absolute',
+    top: -4,
+    bottom: -4,
+    left: 18,
+    right: 18,
+    borderRadius: 38,
+    borderWidth: 1,
+    opacity: 0.35,
+  },
+  liquidDockPill: {
+    width: '100%',
+    height: 70,
+    borderRadius: 35,
+    backgroundColor: 'rgba(11, 17, 13, 0.86)',
+    borderWidth: 1.2,
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 6,
+    overflow: 'hidden',
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 12 },
+    shadowOpacity: 0.7,
+    shadowRadius: 22,
+    elevation: 20,
+  },
+  dockSpecularHighlight: {
+    position: 'absolute',
+    top: 0,
+    left: 28,
+    right: 28,
+    height: 1.5,
+    backgroundColor: 'rgba(255, 255, 255, 0.32)',
+    borderRadius: 1,
+  },
+  dockUpperSheen: {
+    position: 'absolute',
+    top: 1,
+    left: 12,
+    right: 12,
+    height: 30,
+    borderRadius: 22,
+    backgroundColor: 'rgba(255, 255, 255, 0.045)',
+  },
+  liquidSliderPill: {
+    position: 'absolute',
+    top: 6,
+    bottom: 6,
+    left: 6,
+    borderRadius: 29,
+    borderWidth: 1.2,
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.35,
+    shadowRadius: 8,
+    elevation: 5,
+  },
+  liquidSliderInnerShine: {
+    position: 'absolute',
+    top: 1.5,
+    left: 10,
+    right: 10,
+    height: 12,
+    borderRadius: 8,
+    backgroundColor: 'rgba(255, 255, 255, 0.24)',
+  },
+  dockTabItem: {
+    height: '100%',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 4,
+  },
+  dockIconContainer: {
+    height: 26,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  dockTabLabel: {
+    fontSize: 11,
+    marginTop: 2,
+    fontWeight: '600',
+    letterSpacing: 0.2,
+  },
+  dockTabLabelActive: {
+    fontWeight: '800',
+  },
+  dockTabLabelHovered: {
+    color: '#ffffff',
+    fontWeight: '700',
+  },
+  dockTabLabelInactive: {
+    color: '#6c8477',
+  },
+  dockActiveDroplet: {
+    width: 4,
+    height: 4,
+    borderRadius: 2,
+    marginTop: 3,
+  },
+
+  // Floating Scrub Tooltip Capsule Styles
+  dockScrubTooltip: {
+    position: 'absolute',
+    top: -50,
+    borderRadius: 16,
+    borderWidth: 1.2,
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+    alignItems: 'center',
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.6,
+    shadowRadius: 14,
+    elevation: 16,
+    zIndex: 100,
+  },
+  dockTooltipRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  dockTooltipIconWrap: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  dockTooltipTextWrap: {
+    maxWidth: 240,
+  },
+  dockTooltipTitle: {
+    fontSize: 11,
+    fontWeight: '800',
+    letterSpacing: 0.3,
+  },
+  dockTooltipSub: {
+    color: '#a0b5a8',
+    fontSize: 10,
+    fontWeight: '500',
+  },
+  dockTooltipArrow: {
+    position: 'absolute',
+    bottom: -6,
+    width: 0,
+    height: 0,
+    borderLeftWidth: 6,
+    borderRightWidth: 6,
+    borderTopWidth: 6,
+    borderLeftColor: 'transparent',
+    borderRightColor: 'transparent',
+  },
+
+  // Micro Status Badges on Dock Tabs
+  dockMicroBadge: {
+    position: 'absolute',
+    top: -5,
+    right: -10,
+    paddingHorizontal: 4,
+    paddingVertical: 0.5,
+    borderRadius: 7,
+    borderWidth: 1,
+  },
+  dockMicroBadgeDanger: {
+    backgroundColor: 'rgba(239, 68, 68, 0.25)',
+    borderColor: '#ef4444',
+  },
+  dockMicroBadgeText: {
+    fontSize: 8.5,
+    fontWeight: '900',
+  },
+  dockMicroBadgeTextDanger: {
+    color: '#ef4444',
+  },
+  dockMicroDot: {
+    position: 'absolute',
+    top: -3,
+    right: -5,
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+  },
+  dockMicroShieldActiveBadge: {
+    position: 'absolute',
+    top: -5,
+    right: -12,
+    backgroundColor: 'rgba(239, 68, 68, 0.25)',
+    borderColor: '#ef4444',
+    borderWidth: 1,
+    paddingHorizontal: 4,
+    paddingVertical: 0.5,
+    borderRadius: 7,
+  },
+  dockMicroShieldActiveText: {
+    color: '#ef4444',
+    fontSize: 8,
+    fontWeight: '900',
+  },
+
+  // Full-screen backdrop to dismiss quick action menu
+  dockBackdropDismiss: {
+    position: 'absolute',
+    top: 0,
     bottom: 0,
     left: 0,
     right: 0,
-    height: 72,
-    backgroundColor: '#0b0b0b',
-    borderTopColor: '#1d1d1d',
-    borderTopWidth: 1,
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-    alignItems: 'center',
-    paddingBottom: 8,
+    zIndex: 98,
   },
-  tabItem: {
+
+  // Long-press Quick Action Floating Hub
+  dockQuickActionMenu: {
+    position: 'absolute',
+    bottom: 84,
+    borderRadius: 22,
+    borderWidth: 1.2,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.65,
+    shadowRadius: 18,
+    elevation: 20,
+    zIndex: 105,
+    minWidth: 290,
+  },
+  dockQuickActionHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 10,
+    paddingBottom: 6,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(255, 255, 255, 0.08)',
+  },
+  dockQuickActionTitle: {
+    fontSize: 12,
+    fontWeight: '800',
+    letterSpacing: 0.3,
+  },
+  dockQuickActionCloseBtn: {
+    width: 20,
+    height: 20,
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 6,
-    paddingHorizontal: 16,
     borderRadius: 10,
+    backgroundColor: 'rgba(255, 255, 255, 0.08)',
   },
-  tabItemActive: {
-    backgroundColor: 'rgba(56, 211, 159, 0.12)',
-  },
-  tabIcon: {
-    fontSize: 18,
-    marginBottom: 3,
-  },
-  tabLabel: {
-    color: '#5b7367',
+  dockQuickActionCloseText: {
+    color: '#8aa395',
     fontSize: 11,
-    fontWeight: '600',
-  },
-  tabLabelActive: {
-    color: '#38d39f',
     fontWeight: '800',
   },
+  dockQuickActionRow: {
+    flexDirection: 'row',
+    gap: 8,
+    justifyContent: 'space-between',
+  },
+  dockQuickActionBtn: {
+    flex: 1,
+    paddingVertical: 9,
+    paddingHorizontal: 8,
+    borderRadius: 12,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  dockQuickActionBtnText: {
+    fontSize: 10.5,
+    fontWeight: '700',
+    textAlign: 'center',
+  },
+
+  // Optical Shimmer Beam
+  dockShimmerBeam: {
+    position: 'absolute',
+    top: 0,
+    bottom: 0,
+    width: 50,
+    backgroundColor: 'rgba(255, 255, 255, 0.12)',
+  },
+
+  // Touch Ripple Wave
+  dockTouchRipple: {
+    position: 'absolute',
+    width: 50,
+    height: 50,
+    borderRadius: 25,
+    borderWidth: 1.5,
+  },
+
+  // Active Icon Glow Ring
+  dockActiveIconGlowRing: {
+    position: 'absolute',
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    borderWidth: 1,
+  },
+  // Legacy Tab Bar aliases for backwards compatibility
+  tabBar: {
+    display: 'none',
+  },
+  tabItem: {
+    display: 'none',
+  },
+  tabItemActive: {},
+  tabIcon: {},
+  tabLabel: {},
+  tabLabelActive: {},
 
   // Intro Screen Styles
   introHeader: {

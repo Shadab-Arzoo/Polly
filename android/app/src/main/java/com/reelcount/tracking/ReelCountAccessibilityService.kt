@@ -31,6 +31,7 @@ import java.util.ArrayDeque
 class ReelCountAccessibilityService : AccessibilityService() {
   private val trace = ArrayDeque<EventMetadata>(MAX_TRACE_EVENTS)
   private val reducer = CandidateTransitionReducer()
+  private val detector = ShortVideoDetector()
   private val handler = Handler(Looper.getMainLooper())
   private val clearIdleState = Runnable { clearIdleTrace() }
 
@@ -129,6 +130,7 @@ class ReelCountAccessibilityService : AccessibilityService() {
     currentActivePackage = packageName
     if (isAppSwitch) {
       consecutiveShortsInApp = 0
+      reducer.reset()
     }
 
     // Notify when opening a short-video app
@@ -150,7 +152,21 @@ class ReelCountAccessibilityService : AccessibilityService() {
     }
 
     // 4. CANDIDATE SCROLL DETECTION
-    val metadata = EventMetadata(event.eventType, packageName, event.eventTime)
+    val rootNode = try {
+      rootInActiveWindow
+    } catch (_: Exception) {
+      null
+    }
+
+    val detection = detector.detect(event, rootNode)
+    val metadata = EventMetadata(
+      eventType = event.eventType,
+      packageName = packageName,
+      timestamp = event.eventTime,
+      reelFingerprint = detection.fingerprint,
+      isCommentInteraction = detection.isCommentSection
+    )
+
     if (trace.size == MAX_TRACE_EVENTS) trace.removeFirst()
     trace.addLast(metadata)
 

@@ -17,13 +17,18 @@ internal object PrototypeRuntimeStatus {
       for (pkg in TargetPackages.all) {
         packageCounts[pkg] = prefs.getTodayPackageCount(pkg)
       }
+    } else {
+      candidateCount = 0
+      packageCounts.clear()
     }
   }
 
   @Synchronized
   fun disconnected() {
     serviceConnected = false
+    candidateCount = 0
     bufferedEventCount = 0
+    packageCounts.clear()
   }
 
   @Synchronized
