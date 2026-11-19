@@ -2089,7 +2089,7 @@ function App() {
                 ? styles.habitPillDanger
                 : isNearLimit
                 ? styles.habitPillWarning
-                : styles.habitPillSafe,
+                : [styles.habitPillSafe, { backgroundColor: currentTheme.glow, borderColor: currentTheme.border }],
             ]}
           >
             <Text
@@ -2099,7 +2099,7 @@ function App() {
                   ? styles.habitPillTextDanger
                   : isNearLimit
                   ? styles.habitPillTextWarning
-                  : styles.habitPillTextSafe,
+                  : [styles.habitPillTextSafe, { color: currentTheme.primary }],
               ]}
             >
               {isOverLimit ? '🚨 LIMIT BREACHED' : isNearLimit ? '⚡ APPROACHING LIMIT' : '🌱 MINDFUL PACE'}
@@ -2108,12 +2108,21 @@ function App() {
 
           <View style={styles.heroTopActions}>
             <Pressable
-              onPress={() => openCravingModal('breathing')}
-              style={styles.zenPauseButton}
+              onPress={() => {
+                triggerDockHaptic();
+                openCravingModal('breathing');
+              }}
+              style={[styles.zenPauseButton, { backgroundColor: currentTheme.glow, borderColor: currentTheme.border }]}
             >
-              <Text style={styles.zenPauseButtonText}>🧘 1m Reset</Text>
+              <Text style={[styles.zenPauseButtonText, { color: currentTheme.primary }]}>🧘 1m Reset</Text>
             </Pressable>
-            <Pressable onPress={handleResetCounters} style={styles.resetButton}>
+            <Pressable
+              onPress={() => {
+                triggerDockHaptic();
+                handleResetCounters();
+              }}
+              style={[styles.resetButton, { backgroundColor: currentTheme.surfaceRaised, borderColor: currentTheme.hairline }]}
+            >
               <Text style={styles.resetButtonText}>Reset</Text>
             </Pressable>
           </View>
@@ -2570,11 +2579,11 @@ function App() {
       <View style={[styles.sectionCard, { backgroundColor: currentTheme.surface, borderColor: currentTheme.hairline }]}>
         <View style={styles.clockHeaderRow}>
           <View>
-            <Text style={styles.cardSectionEyebrow}>CIRCADIAN DOPAMINE MATRIX</Text>
+            <Text style={[styles.cardSectionEyebrow, { color: currentTheme.primary }]}>CIRCADIAN DOPAMINE MATRIX</Text>
             <Text style={styles.cardSectionTitle}>24-Hour Attention Clock</Text>
           </View>
           <View style={styles.liveNowPill}>
-            <View style={styles.liveNowDot} />
+            <View style={[styles.liveNowDot, { backgroundColor: currentTheme.primary }]} />
             <Text style={styles.liveNowText}>Hour {new Date().getHours()}:00</Text>
           </View>
         </View>
@@ -2589,14 +2598,18 @@ function App() {
             return (
               <Pressable
                 key={h}
-                onPress={() => setSelectedDopamineHour(h)}
+                onPress={() => {
+                  triggerDockHaptic();
+                  setSelectedDopamineHour(h);
+                }}
                 style={[
                   styles.hourlyBarItem,
-                  isSelected && styles.hourlyBarItemSelected,
-                  isCurrent && styles.hourlyBarItemCurrent,
+                  { backgroundColor: currentTheme.surfaceRaised, borderColor: currentTheme.hairline },
+                  isSelected && [styles.hourlyBarItemSelected, { borderColor: currentTheme.primary, backgroundColor: currentTheme.glow }],
+                  isCurrent && [styles.hourlyBarItemCurrent, { borderColor: currentTheme.primary }],
                 ]}
               >
-                <Text style={[styles.hourlyBarHourText, isSelected && styles.hourlyBarTextActive]}>
+                <Text style={[styles.hourlyBarHourText, isSelected && [styles.hourlyBarTextActive, { color: currentTheme.primary }]]}>
                   {h.toString().padStart(2, '0')}
                 </Text>
                 <View style={[styles.hourlyBarIndicator, { backgroundColor: prof.color }]} />
@@ -2607,7 +2620,7 @@ function App() {
         </ScrollView>
 
         {/* Selected Hour Insight Card */}
-        <View style={[styles.hourInsightBox, { borderColor: selectedHourProfile.color }]}>
+        <View style={[styles.hourInsightBox, { backgroundColor: currentTheme.surfaceRaised, borderColor: selectedHourProfile.color }]}>
           <View style={styles.hourInsightHeader}>
             <Text style={styles.hourInsightIcon}>{selectedHourProfile.icon}</Text>
             <View style={styles.hourInsightTitleCol}>
@@ -2629,10 +2642,10 @@ function App() {
       <View style={[styles.sectionCard, { backgroundColor: currentTheme.surface, borderColor: currentTheme.hairline }]}>
         <View style={styles.triggerHeaderRow}>
           <View>
-            <Text style={styles.cardSectionEyebrow}>SELF-AWARENESS TRACKER</Text>
+            <Text style={[styles.cardSectionEyebrow, { color: currentTheme.primary }]}>SELF-AWARENESS TRACKER</Text>
             <Text style={styles.cardSectionTitle}>Why did you reach for feeds?</Text>
           </View>
-          <Text style={styles.triggerXpHint}>+10 XP / log</Text>
+          <Text style={[styles.triggerXpHint, { color: currentTheme.primary }]}>+10 XP / log</Text>
         </View>
         <Text style={styles.triggerSubText}>
           Logging the emotion behind the impulse disarms unconscious muscle memory.
@@ -2647,15 +2660,22 @@ function App() {
             return (
               <Pressable
                 key={t}
-                onPress={() => handleLogTrigger(t)}
-                style={[styles.triggerPill, isSelected && styles.triggerPillSelected]}
+                onPress={() => {
+                  triggerDockHaptic();
+                  handleLogTrigger(t);
+                }}
+                style={[
+                  styles.triggerPill,
+                  { backgroundColor: currentTheme.surfaceRaised, borderColor: currentTheme.hairline },
+                  isSelected && [styles.triggerPillSelected, { borderColor: currentTheme.primary, backgroundColor: currentTheme.glow }],
+                ]}
               >
                 <Text style={styles.triggerPillIcon}>{data.icon}</Text>
-                <Text style={[styles.triggerPillLabel, isSelected && styles.triggerPillLabelSelected]}>
+                <Text style={[styles.triggerPillLabel, isSelected && [styles.triggerPillLabelSelected, { color: currentTheme.primary }]]}>
                   {data.label}
                 </Text>
-                <View style={styles.triggerCountBadge}>
-                  <Text style={styles.triggerCountBadgeText}>{count}</Text>
+                <View style={[styles.triggerCountBadge, isSelected && { backgroundColor: currentTheme.primary }]}>
+                  <Text style={[styles.triggerCountBadgeText, isSelected && { color: currentTheme.background }]}>{count}</Text>
                 </View>
               </Pressable>
             );
@@ -2663,8 +2683,8 @@ function App() {
         </ScrollView>
 
         {/* Dynamic Behavioral Hack for Selected Trigger */}
-        <View style={styles.triggerAdviceCard}>
-          <Text style={styles.triggerAdviceEyebrow}>
+        <View style={[styles.triggerAdviceCard, { backgroundColor: currentTheme.surfaceRaised, borderColor: currentTheme.border }]}>
+          <Text style={[styles.triggerAdviceEyebrow, { color: currentTheme.primary }]}>
             {TRIGGER_DATA[selectedTrigger].icon} NEURO-REPLACEMENT PROTOCOL
           </Text>
           <Text style={styles.triggerAdviceBody}>{TRIGGER_DATA[selectedTrigger].advice}</Text>
@@ -2681,24 +2701,24 @@ function App() {
           Real-world experiences reclaimed compared to typical 90m doomscrolling.
         </Text>
         <View style={styles.lifeReclaimedGrid}>
-          <View style={styles.lifeReclaimedCard}>
+          <View style={[styles.lifeReclaimedCard, { backgroundColor: currentTheme.surfaceRaised, borderColor: currentTheme.hairline }]}>
             <Text style={styles.lifeReclaimedIcon}>⏱️</Text>
-            <Text style={styles.lifeReclaimedValue}>~{timeSavedMins}m</Text>
+            <Text style={[styles.lifeReclaimedValue, { color: currentTheme.primary }]}>~{timeSavedMins}m</Text>
             <Text style={styles.lifeReclaimedLabel}>Time Reclaimed</Text>
           </View>
-          <View style={styles.lifeReclaimedCard}>
+          <View style={[styles.lifeReclaimedCard, { backgroundColor: currentTheme.surfaceRaised, borderColor: currentTheme.hairline }]}>
             <Text style={styles.lifeReclaimedIcon}>📚</Text>
-            <Text style={styles.lifeReclaimedValue}>{bookPagesEquivalent} pgs</Text>
+            <Text style={[styles.lifeReclaimedValue, { color: currentTheme.primary }]}>{bookPagesEquivalent} pgs</Text>
             <Text style={styles.lifeReclaimedLabel}>Book Reading Equiv</Text>
           </View>
-          <View style={styles.lifeReclaimedCard}>
+          <View style={[styles.lifeReclaimedCard, { backgroundColor: currentTheme.surfaceRaised, borderColor: currentTheme.hairline }]}>
             <Text style={styles.lifeReclaimedIcon}>🚶</Text>
-            <Text style={styles.lifeReclaimedValue}>{walkingStepsEquivalent}</Text>
+            <Text style={[styles.lifeReclaimedValue, { color: currentTheme.primary }]}>{walkingStepsEquivalent}</Text>
             <Text style={styles.lifeReclaimedLabel}>Physical Steps Equiv</Text>
           </View>
-          <View style={styles.lifeReclaimedCard}>
+          <View style={[styles.lifeReclaimedCard, { backgroundColor: currentTheme.surfaceRaised, borderColor: currentTheme.hairline }]}>
             <Text style={styles.lifeReclaimedIcon}>🧠</Text>
-            <Text style={styles.lifeReclaimedValue}>Grounded</Text>
+            <Text style={[styles.lifeReclaimedValue, { color: currentTheme.primary }]}>Grounded</Text>
             <Text style={styles.lifeReclaimedLabel}>Dopamine State</Text>
           </View>
         </View>
@@ -2734,7 +2754,7 @@ function App() {
               Protects nighttime rest and eliminates late-night doomscrolling before sleep.
             </Text>
           </View>
-          <View style={[styles.switchTrack, bedtimeShield && styles.switchTrackOn]}>
+          <View style={[styles.switchTrack, bedtimeShield && [styles.switchTrackOn, { backgroundColor: currentTheme.primary }]]}>
             <View style={[styles.switchThumb, bedtimeShield && styles.switchThumbOn]} />
           </View>
         </Pressable>
@@ -2759,7 +2779,7 @@ function App() {
             </Text>
           </View>
           <View
-            style={[styles.switchTrack, speedbumpEnabled && styles.switchTrackOn]}
+            style={[styles.switchTrack, speedbumpEnabled && [styles.switchTrackOn, { backgroundColor: currentTheme.primary }]]}
           >
             <View
               style={[
@@ -2785,7 +2805,7 @@ function App() {
             </Text>
           </View>
           <View
-            style={[styles.switchTrack, breakReminder && styles.switchTrackOn]}
+            style={[styles.switchTrack, breakReminder && [styles.switchTrackOn, { backgroundColor: currentTheme.primary }]]}
           >
             <View
               style={[styles.switchThumb, breakReminder && styles.switchThumbOn]}
@@ -2808,7 +2828,7 @@ function App() {
             </Text>
           </View>
           <View
-            style={[styles.switchTrack, doomscrollAlert && styles.switchTrackOn]}
+            style={[styles.switchTrack, doomscrollAlert && [styles.switchTrackOn, { backgroundColor: currentTheme.primary }]]}
           >
             <View
               style={[
@@ -2830,7 +2850,7 @@ function App() {
             </Text>
           </View>
           <View
-            style={[styles.switchTrack, weeklyRecapAlert && styles.switchTrackOn]}
+            style={[styles.switchTrack, weeklyRecapAlert && [styles.switchTrackOn, { backgroundColor: currentTheme.primary }]]}
           >
             <View
               style={[
@@ -3092,7 +3112,7 @@ function App() {
             </Text>
           </View>
           <View
-            style={[styles.switchTrack, focusModeActive && styles.switchTrackOn]}
+            style={[styles.switchTrack, focusModeActive && [styles.switchTrackOn, { backgroundColor: currentTheme.primary }]]}
           >
             <View
               style={[
@@ -3116,7 +3136,7 @@ function App() {
             </View>
           </View>
           <View
-            style={[styles.switchTrack, blockInstagram && styles.switchTrackOn]}
+            style={[styles.switchTrack, blockInstagram && [styles.switchTrackOn, { backgroundColor: currentTheme.primary }]]}
           >
             <View
               style={[styles.switchThumb, blockInstagram && styles.switchThumbOn]}
@@ -3137,7 +3157,7 @@ function App() {
             </View>
           </View>
           <View
-            style={[styles.switchTrack, blockTikTok && styles.switchTrackOn]}
+            style={[styles.switchTrack, blockTikTok && [styles.switchTrackOn, { backgroundColor: currentTheme.primary }]]}
           >
             <View
               style={[styles.switchThumb, blockTikTok && styles.switchThumbOn]}
@@ -3158,7 +3178,7 @@ function App() {
             </View>
           </View>
           <View
-            style={[styles.switchTrack, blockYouTube && styles.switchTrackOn]}
+            style={[styles.switchTrack, blockYouTube && [styles.switchTrackOn, { backgroundColor: currentTheme.primary }]]}
           >
             <View
               style={[styles.switchThumb, blockYouTube && styles.switchThumbOn]}
@@ -3179,7 +3199,7 @@ function App() {
             </View>
           </View>
           <View
-            style={[styles.switchTrack, blockSnapchat && styles.switchTrackOn]}
+            style={[styles.switchTrack, blockSnapchat && [styles.switchTrackOn, { backgroundColor: currentTheme.primary }]]}
           >
             <View
               style={[styles.switchThumb, blockSnapchat && styles.switchThumbOn]}
@@ -3259,19 +3279,27 @@ function App() {
             <Pressable
               key={sItem.id}
               onPress={() => {
+                triggerDockHaptic();
                 setSoundscape(sItem.id);
                 toggleSoundscapeAudio(true, sItem.id);
               }}
               style={[
                 styles.soundscapeCard,
-                soundscape === sItem.id && styles.soundscapeCardActive,
+                { backgroundColor: currentTheme.surfaceRaised, borderColor: currentTheme.hairline },
+                soundscape === sItem.id && [
+                  styles.soundscapeCardActive,
+                  { borderColor: currentTheme.primary, backgroundColor: currentTheme.glow },
+                ],
               ]}
             >
               <Text style={styles.soundscapeIcon}>{sItem.icon}</Text>
               <Text
                 style={[
                   styles.soundscapeName,
-                  soundscape === sItem.id && styles.soundscapeNameActive,
+                  soundscape === sItem.id && [
+                    styles.soundscapeNameActive,
+                    { color: currentTheme.primary },
+                  ],
                 ]}
               >
                 {sItem.name}
@@ -3280,12 +3308,12 @@ function App() {
           ))}
         </View>
         {soundscapePlaying && (
-          <View style={styles.equalizerRow}>
-            <View style={[styles.eqBar, styles.eqBar1]} />
-            <View style={[styles.eqBar, styles.eqBar2]} />
-            <View style={[styles.eqBar, styles.eqBar3]} />
-            <View style={[styles.eqBar, styles.eqBar4]} />
-            <Text style={styles.eqLabel}>
+          <View style={[styles.equalizerRow, { backgroundColor: currentTheme.surfaceRaised, borderColor: currentTheme.hairline, borderWidth: 1 }]}>
+            <View style={[styles.eqBar, styles.eqBar1, { backgroundColor: currentTheme.primary }]} />
+            <View style={[styles.eqBar, styles.eqBar2, { backgroundColor: currentTheme.primary }]} />
+            <View style={[styles.eqBar, styles.eqBar3, { backgroundColor: currentTheme.primary }]} />
+            <View style={[styles.eqBar, styles.eqBar4, { backgroundColor: currentTheme.primary }]} />
+            <Text style={[styles.eqLabel, { color: currentTheme.subtext }]}>
               Playing {soundscapesList.find(s => s.id === soundscape)?.name} ({soundscapeDurationMins}m session)
             </Text>
           </View>
@@ -3298,6 +3326,7 @@ function App() {
             <Pressable
               key={mins}
               onPress={() => {
+                triggerDockHaptic();
                 setSoundscapeDurationMins(mins);
                 if (soundscapePlaying) {
                   PrototypeSettings.playSoundscape(soundscape, mins).catch(() => {});
@@ -3305,13 +3334,20 @@ function App() {
               }}
               style={[
                 styles.soundscapeDurationBtn,
-                soundscapeDurationMins === mins && styles.soundscapeDurationBtnActive,
+                { backgroundColor: currentTheme.surfaceRaised, borderColor: currentTheme.hairline },
+                soundscapeDurationMins === mins && [
+                  styles.soundscapeDurationBtnActive,
+                  { backgroundColor: currentTheme.primary, borderColor: currentTheme.primary },
+                ],
               ]}
             >
               <Text
                 style={[
                   styles.soundscapeDurationBtnText,
-                  soundscapeDurationMins === mins && styles.soundscapeDurationBtnTextActive,
+                  soundscapeDurationMins === mins && [
+                    styles.soundscapeDurationBtnTextActive,
+                    { color: currentTheme.background },
+                  ],
                 ]}
               >
                 {mins}m
@@ -3319,10 +3355,13 @@ function App() {
             </Pressable>
           ))}
           <Pressable
-            onPress={() => toggleSoundscapeAudio()}
-            style={styles.soundscapePlayToggleBtn}
+            onPress={() => {
+              triggerDockHaptic();
+              toggleSoundscapeAudio();
+            }}
+            style={[styles.soundscapePlayToggleBtn, { backgroundColor: currentTheme.glow, borderColor: currentTheme.border }]}
           >
-            <Text style={styles.soundscapePlayToggleText}>
+            <Text style={[styles.soundscapePlayToggleText, { color: currentTheme.primary }]}>
               {soundscapePlaying ? '⏸ Pause' : '▶ Play'}
             </Text>
           </Pressable>
@@ -3554,7 +3593,11 @@ function App() {
               key={badge.id}
               style={[
                 styles.milestoneBadgeCard,
-                badge.unlocked ? styles.milestoneUnlocked : styles.milestoneLocked,
+                { backgroundColor: currentTheme.surfaceRaised, borderColor: currentTheme.hairline },
+                badge.unlocked && [
+                  styles.milestoneUnlocked,
+                  { backgroundColor: currentTheme.glow, borderColor: currentTheme.border },
+                ],
               ]}
             >
               <Text style={styles.milestoneIcon}>{badge.icon}</Text>
@@ -3570,13 +3613,17 @@ function App() {
               <View
                 style={[
                   styles.milestoneStatusTag,
-                  badge.unlocked ? styles.milestoneStatusTagUnlocked : styles.milestoneStatusTagLocked,
+                  badge.unlocked
+                    ? [styles.milestoneStatusTagUnlocked, { backgroundColor: currentTheme.glow }]
+                    : styles.milestoneStatusTagLocked,
                 ]}
               >
                 <Text
                   style={[
                     styles.milestoneStatusText,
-                    badge.unlocked ? styles.milestoneStatusTextUnlocked : styles.milestoneStatusTextLocked,
+                    badge.unlocked
+                      ? [styles.milestoneStatusTextUnlocked, { color: currentTheme.primary }]
+                      : styles.milestoneStatusTextLocked,
                   ]}
                 >
                   {badge.unlocked ? '✓ UNLOCKED' : '🔒 LOCKED'}
@@ -3614,7 +3661,7 @@ function App() {
 
         {/* Permissions Checklist */}
         <View style={styles.healthList}>
-          <View style={styles.healthItem}>
+          <View style={[styles.healthItem, { backgroundColor: currentTheme.surfaceRaised, borderColor: currentTheme.hairline }]}>
             <Text style={styles.healthIcon}>{prototypeStatus.serviceConnected ? '✅' : '⚠️'}</Text>
             <View style={styles.healthInfo}>
               <Text style={styles.healthTitle}>Accessibility Tracking Service</Text>
@@ -3625,14 +3672,14 @@ function App() {
               </Text>
             </View>
           </View>
-          <View style={styles.healthItem}>
+          <View style={[styles.healthItem, { backgroundColor: currentTheme.surfaceRaised, borderColor: currentTheme.hairline }]}>
             <Text style={styles.healthIcon}>✅</Text>
             <View style={styles.healthInfo}>
               <Text style={styles.healthTitle}>Floating Screen Overlay (HUD)</Text>
               <Text style={styles.healthDesc}>TYPE_ACCESSIBILITY_OVERLAY enabled for draggable pill.</Text>
             </View>
           </View>
-          <View style={styles.healthItem}>
+          <View style={[styles.healthItem, { backgroundColor: currentTheme.surfaceRaised, borderColor: currentTheme.hairline }]}>
             <Text style={styles.healthIcon}>✅</Text>
             <View style={styles.healthInfo}>
               <Text style={styles.healthTitle}>Local Device Storage</Text>
@@ -4289,58 +4336,67 @@ function App() {
           }}
         >
           <View style={styles.modalOverlay}>
-            <View style={styles.breatheModalCard}>
-              <Text style={styles.breatheModalEyebrow}>NEURAL PATTERN INTERRUPT</Text>
+            <View style={[styles.breatheModalCard, { backgroundColor: currentTheme.surface, borderColor: currentTheme.border }]}>
+              <Text style={[styles.breatheModalEyebrow, { color: currentTheme.primary }]}>NEURAL PATTERN INTERRUPT</Text>
               <Text style={styles.breatheModalTitle}>Craving SOS Sanctuary</Text>
               <Text style={styles.breatheModalDesc}>
                 Break the dopamine compulsion loop with an evidence-based mindful pause.
               </Text>
 
               {/* 4-Mode Switcher */}
-              <View style={styles.modalTabRow}>
+              <View style={[styles.modalTabRow, { backgroundColor: currentTheme.surfaceRaised, borderColor: currentTheme.hairline, borderWidth: 1 }]}>
                 <Pressable
-                  onPress={() => setCravingTab('breathing')}
+                  onPress={() => {
+                    triggerDockHaptic();
+                    setCravingTab('breathing');
+                  }}
                   style={[
                     styles.modalTabBtn,
-                    cravingTab === 'breathing' && styles.modalTabBtnActive,
+                    cravingTab === 'breathing' && [styles.modalTabBtnActive, { backgroundColor: currentTheme.glow, borderColor: currentTheme.border, borderWidth: 1 }],
                   ]}
                 >
                   <Text
                     style={[
                       styles.modalTabBtnText,
-                      cravingTab === 'breathing' && styles.modalTabBtnTextActive,
+                      cravingTab === 'breathing' && [styles.modalTabBtnTextActive, { color: currentTheme.primary }],
                     ]}
                   >
                     🧘 Breath
                   </Text>
                 </Pressable>
                 <Pressable
-                  onPress={() => setCravingTab('delay')}
+                  onPress={() => {
+                    triggerDockHaptic();
+                    setCravingTab('delay');
+                  }}
                   style={[
                     styles.modalTabBtn,
-                    cravingTab === 'delay' && styles.modalTabBtnActive,
+                    cravingTab === 'delay' && [styles.modalTabBtnActive, { backgroundColor: currentTheme.glow, borderColor: currentTheme.border, borderWidth: 1 }],
                   ]}
                 >
                   <Text
                     style={[
                       styles.modalTabBtnText,
-                      cravingTab === 'delay' && styles.modalTabBtnTextActive,
+                      cravingTab === 'delay' && [styles.modalTabBtnTextActive, { color: currentTheme.primary }],
                     ]}
                   >
                     🌊 90s Delay
                   </Text>
                 </Pressable>
                 <Pressable
-                  onPress={() => setCravingTab('grounding')}
+                  onPress={() => {
+                    triggerDockHaptic();
+                    setCravingTab('grounding');
+                  }}
                   style={[
                     styles.modalTabBtn,
-                    cravingTab === 'grounding' && styles.modalTabBtnActive,
+                    cravingTab === 'grounding' && [styles.modalTabBtnActive, { backgroundColor: currentTheme.glow, borderColor: currentTheme.border, borderWidth: 1 }],
                   ]}
                 >
                   <Text
                     style={[
                       styles.modalTabBtnText,
-                      cravingTab === 'grounding' && styles.modalTabBtnTextActive,
+                      cravingTab === 'grounding' && [styles.modalTabBtnTextActive, { color: currentTheme.primary }],
                     ]}
                   >
                     🌿 Grounding
@@ -4348,18 +4404,19 @@ function App() {
                 </Pressable>
                 <Pressable
                   onPress={() => {
+                    triggerDockHaptic();
                     resetStroop();
                     setCravingTab('stroop');
                   }}
                   style={[
                     styles.modalTabBtn,
-                    cravingTab === 'stroop' && styles.modalTabBtnActive,
+                    cravingTab === 'stroop' && [styles.modalTabBtnActive, { backgroundColor: currentTheme.glow, borderColor: currentTheme.border, borderWidth: 1 }],
                   ]}
                 >
                   <Text
                     style={[
                       styles.modalTabBtnText,
-                      cravingTab === 'stroop' && styles.modalTabBtnTextActive,
+                      cravingTab === 'stroop' && [styles.modalTabBtnTextActive, { color: currentTheme.primary }],
                     ]}
                   >
                     🧠 Stroop
@@ -4402,8 +4459,8 @@ function App() {
               {cravingTab === 'delay' && (
                 <View style={styles.cravingContentWrap}>
                   <View style={styles.delayVisualWrap}>
-                    <View style={styles.delayTimerCircle}>
-                      <Text style={styles.delaySecondsText}>{delaySeconds}s</Text>
+                    <View style={[styles.delayTimerCircle, { borderColor: currentTheme.primary, backgroundColor: currentTheme.glow }]}>
+                      <Text style={[styles.delaySecondsText, { color: currentTheme.primary }]}>{delaySeconds}s</Text>
                       <Text style={styles.delaySublabel}>Craving Surge</Text>
                     </View>
                   </View>
@@ -4416,21 +4473,29 @@ function App() {
                   </Text>
                   <View style={styles.delayActionBtnRow}>
                     <Pressable
-                      onPress={() => setDelayRunning(prev => !prev)}
-                      style={[styles.delayActionBtn, delayRunning && styles.delayActionBtnActive]}
+                      onPress={() => {
+                        triggerDockHaptic();
+                        setDelayRunning(prev => !prev);
+                      }}
+                      style={[
+                        styles.delayActionBtn,
+                        { backgroundColor: currentTheme.primary },
+                        delayRunning && styles.delayActionBtnActive,
+                      ]}
                     >
-                      <Text style={styles.delayActionBtnText}>
+                      <Text style={[styles.delayActionBtnText, { color: currentTheme.background }]}>
                         {delayRunning ? '⏸️ Pause Timer' : '▶️ Surf the Wave (90s)'}
                       </Text>
                     </Pressable>
                     <Pressable
                       onPress={() => {
+                        triggerDockHaptic();
                         setDelayRunning(false);
                         setDelaySeconds(90);
                       }}
-                      style={styles.delayResetBtn}
+                      style={[styles.delayResetBtn, { backgroundColor: currentTheme.surfaceRaised, borderColor: currentTheme.hairline }]}
                     >
-                      <Text style={styles.delayResetBtnText}>Reset</Text>
+                      <Text style={[styles.delayResetBtnText, { color: currentTheme.primary }]}>Reset</Text>
                     </Pressable>
                   </View>
                 </View>
@@ -4439,9 +4504,9 @@ function App() {
               {/* Mode 3: 5-4-3-2-1 Sensory Grounding */}
               {cravingTab === 'grounding' && (
                 <View style={styles.cravingContentWrap}>
-                  <View style={styles.groundingCard}>
+                  <View style={[styles.groundingCard, { backgroundColor: currentTheme.surfaceRaised, borderColor: currentTheme.hairline }]}>
                     <View style={styles.groundingBadgeRow}>
-                      <Text style={styles.groundingSenseTag}>
+                      <Text style={[styles.groundingSenseTag, { color: currentTheme.primary }]}>
                         {groundingSteps[groundingStep].sense}
                       </Text>
                       <Text style={styles.groundingStepCount}>
@@ -4457,6 +4522,7 @@ function App() {
                   </View>
                   <Pressable
                     onPress={() => {
+                      triggerDockHaptic();
                       if (groundingStep < groundingSteps.length - 1) {
                         setGroundingStep(prev => prev + 1);
                       } else {
@@ -4465,9 +4531,9 @@ function App() {
                         Alert.alert('Grounding Complete 🌿', 'Your senses are anchored and mind is clear.');
                       }
                     }}
-                    style={styles.groundingNextBtn}
+                    style={[styles.groundingNextBtn, { backgroundColor: currentTheme.primary }]}
                   >
-                    <Text style={styles.groundingNextBtnText}>
+                    <Text style={[styles.groundingNextBtnText, { color: currentTheme.background }]}>
                       {groundingStep < 4 ? 'Next Sensory Anchor →' : 'Complete Grounding Session ✓'}
                     </Text>
                   </Pressable>
@@ -4558,14 +4624,15 @@ function App() {
 
               <Pressable
                 onPress={() => {
+                  triggerDockHaptic();
                   setShowCravingModal(false);
                   setDelayRunning(false);
                   setBreatheSecondsRemaining(60);
                   setBreathePhase('Inhale');
                 }}
-                style={styles.breatheCloseBtn}
+                style={[styles.breatheCloseBtn, { backgroundColor: currentTheme.surfaceRaised, borderColor: currentTheme.hairline }]}
               >
-                <Text style={styles.breatheCloseBtnText}>Return to Sanctuary</Text>
+                <Text style={[styles.breatheCloseBtnText, { color: currentTheme.primary }]}>Return to Sanctuary</Text>
               </Pressable>
             </View>
           </View>
