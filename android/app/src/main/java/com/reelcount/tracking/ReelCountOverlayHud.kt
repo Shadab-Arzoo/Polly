@@ -79,10 +79,11 @@ class ReelCountOverlayHud(private val context: Context) {
 
   private fun getThemeAccentColor(): Int {
     return when (prefs.getThemeAccent().lowercase()) {
-      "mint" -> Color.parseColor("#6EE3AD")
+      "mint", "emerald" -> Color.parseColor("#6EE3AD")
       "cyan" -> Color.parseColor("#38BDF8")
       "amethyst" -> Color.parseColor("#C084FC")
       "amber" -> Color.parseColor("#FBBF24")
+      "rose" -> Color.parseColor("#FB7185")
       "monochrome" -> Color.parseColor("#F9F8F9")
       else -> Color.parseColor("#6EE3AD")
     }
