@@ -75,17 +75,24 @@ jobs:
           - **Commit**: `{sha}`
 
           ### ✨ Major Enhancements:
+          - **Sanctuary Atmosphere Theme System**:
+            - 6 full dynamic palettes: **Obsidian Mint** (Zen Clarity), **Cyber Sky** (Electric Flow), **Amethyst Aura** (Mystic Depth), **Solar Amber** (Vitality & Focus), **Neon Rose** (Radical Awareness), and **Pure Titanium** (Brutalist Minimal).
+            - Real-time whole-app immersion: Android status bar, screen backdrops, card surfaces, and hairlines dynamically adapt to the active atmosphere.
+            - Interactive 2-Column Atmosphere Showcase Grid with circular vector halos, dual-tone swatch dots, and active badges.
+            - Full native floating overlay HUD synchronization in `ReelCountOverlayHud.kt`.
+          - **Harmonized Modals & Dials**:
+            - Craving SOS Sanctuary Modal with 4-mode switcher (4-4-4 Box Breath, 90s Delay Surfer, 5-4-3-2-1 Sensory Grounding, Stroop Urge Gate).
+            - 24-Hour Circadian Attention Clock & horizontal hourly bar dial with haptic feedback.
+            - Reactive switches and toggles across all limit and shield settings.
           - **Liquid Glass Floating Capsule Dock**:
             - Floating pill-shaped dock with translucent frosted obsidian glass, specular rim lighting, and ambient underglow.
             - **Hold & Slide Gesture Navigation**: Continuous horizontal thumb scrubbing with real-time sliding indicator and haptic feedback.
             - **Continuous Fisheye Magnification**: Gaussian wave magnification up to `1.30x` with `-8.5dp` elevation and velocity tilt.
             - **Dynamic Island Preview Tooltip Capsule**: Real-time live status capsule hovering over active scrubbing.
             - **Live Micro-Badges**: Today's video count, limits warning dot, and active focus shield countdown directly on dock tabs.
-            - **Hold & Slide Gesture Navigation**: Hold the current tab or any tab in the dock, drag left and right to scrub across tabs with continuous thumb tracking, and release to switch tabs.
             - **Optical Shimmer & Touch Ripple**: Specular light refraction beam and liquid contact ripple waves.
           - **Decluttered Minimal Dashboard**:
-            - Clean, simplified dashboard tab showing only core essentials: hero counter ring, dopamine gauge, 4-stat grid, platform breakdown, and 7-day rhythm chart.
-            - Organized secondary tools cleanly into Limits, Focus, and Settings tabs.
+            - Clean, simplified dashboard tab showing core essentials: concentric hero ring, dopamine gauge, 4-stat grid, expandable platform breakdown, and 7-day rhythm chart.
           - **4-Slide Horizontal Onboarding Carousel**:
             - Paged swipe carousel with minimal text, progress pagination dots, and 4 custom 16:9 Obsidian Mint 3D illustrations.
           - **Short Video Tracking Accuracy Fix**:
