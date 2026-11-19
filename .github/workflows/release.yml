@@ -81,7 +81,7 @@ jobs:
             - **Continuous Fisheye Magnification**: Gaussian wave magnification up to `1.30x` with `-8.5dp` elevation and velocity tilt.
             - **Dynamic Island Preview Tooltip Capsule**: Real-time live status capsule hovering over active scrubbing.
             - **Live Micro-Badges**: Today's video count, limits warning dot, and active focus shield countdown directly on dock tabs.
-            - **Long-Press Quick Shortcuts Hub**: Hold any tab for 400ms to open quick action shortcuts (1m reset breath, 15m focus sprint, limit adjusting, theme cycling).
+            - **Hold & Slide Gesture Navigation**: Hold the current tab or any tab in the dock, drag left and right to scrub across tabs with continuous thumb tracking, and release to switch tabs.
             - **Optical Shimmer & Touch Ripple**: Specular light refraction beam and liquid contact ripple waves.
           - **Decluttered Minimal Dashboard**:
             - Clean, simplified dashboard tab showing only core essentials: hero counter ring, dopamine gauge, 4-stat grid, platform breakdown, and 7-day rhythm chart.

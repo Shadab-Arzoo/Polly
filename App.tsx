@@ -205,6 +205,32 @@ function App() {
   const [dockWidth, setDockWidth] = useState(windowWidth > 0 ? windowWidth - 28 : 340);
   const dockWidthRef = useRef(dockWidth);
   dockWidthRef.current = dockWidth;
+  const dockLeftRef = useRef(14);
+  const dockWrapRef = useRef<any>(null);
+
+  const getDockRelativeX = (screenX?: number, evtLocationX?: number): number => {
+    if (screenX !== undefined && screenX !== null && !isNaN(screenX) && screenX > 0) {
+      return Math.max(0, Math.min(dockWidthRef.current, screenX - dockLeftRef.current));
+    }
+    if (evtLocationX !== undefined && evtLocationX !== null && !isNaN(evtLocationX)) {
+      return Math.max(0, Math.min(dockWidthRef.current, evtLocationX));
+    }
+    return dockWidthRef.current / 2;
+  };
+
+  const getTabIndexFromDockX = (dockX: number): number => {
+    const dockInnerW = Math.max(1, dockWidthRef.current - 12);
+    const slotW = dockInnerW / 4;
+    const contentX = Math.max(0, Math.min(dockInnerW - 1, dockX - 6));
+    return Math.max(0, Math.min(3, Math.floor(contentX / slotW)));
+  };
+
+  const getFractionalPosFromDockX = (dockX: number): number => {
+    const dockInnerW = Math.max(1, dockWidthRef.current - 12);
+    const slotW = dockInnerW / 4;
+    const contentX = Math.max(0, Math.min(dockInnerW - 1, dockX - 6));
+    return Math.max(0, Math.min(3, contentX / slotW - 0.5));
+  };
 
   const sliderAnim = useRef(new Animated.Value(TAB_INDEX_MAP[activeTab])).current;
   const sliderScaleX = useRef(new Animated.Value(1.0)).current;
@@ -576,20 +602,23 @@ function App() {
     PanResponder.create({
       onStartShouldSetPanResponder: () => true,
       onMoveShouldSetPanResponder: (_, gesture) =>
-        Math.abs(gesture.dx) > 3 || Math.abs(gesture.dy) > 3,
-      onPanResponderGrant: (evt) => {
+        Math.abs(gesture.dx) > 2 || Math.abs(gesture.dy) > 2,
+      onPanResponderTerminationRequest: () => false,
+      onPanResponderGrant: (evt, gesture) => {
         isDragActiveRef.current = true;
         setIsDraggingDock(true);
-        touchStartX.current = evt.nativeEvent.locationX;
-        const slotW = dockWidthRef.current / 4;
-        const idx = Math.max(0, Math.min(3, Math.floor(touchStartX.current / slotW)));
+
+        const screenX = gesture.x0 || evt.nativeEvent.pageX;
+        const dockX = getDockRelativeX(screenX, evt.nativeEvent.locationX);
+        const idx = getTabIndexFromDockX(dockX);
+        const fractionalPos = getFractionalPosFromDockX(dockX);
+
         currentHoveredIdxRef.current = idx;
         setHoveredTabIndex(idx);
-
         triggerDockHaptic();
 
-        // Touch ripple animation
-        setRippleCoord({ x: evt.nativeEvent.locationX, y: evt.nativeEvent.locationY });
+        // Touch ripple animation inside dock
+        setRippleCoord({ x: dockX, y: evt.nativeEvent.locationY || 35 });
         rippleAnim.setValue(0);
         rippleOpacity.setValue(0.5);
         Animated.parallel([
@@ -607,24 +636,16 @@ function App() {
           }),
         ]).start();
 
-        // Start long-press timer for Quick Actions Menu
-        clearTimeout(longPressTimerRef.current);
-        longPressTimerRef.current = setTimeout(() => {
-          if (isDragActiveRef.current) {
-            openQuickActions(idx);
-          }
-        }, 420);
-
         // 3D Press Down Effect on dock container
         Animated.spring(dockScale, {
-          toValue: 0.982,
+          toValue: 0.975,
           friction: 6,
           tension: 160,
           useNativeDriver: true,
         }).start();
 
         // Reveal Scrub Tooltip Capsule
-        tooltipX.setValue(idx);
+        tooltipX.setValue(fractionalPos);
         Animated.parallel([
           Animated.spring(tooltipScale, {
             toValue: 1.0,
@@ -639,48 +660,48 @@ function App() {
           }),
         ]).start();
 
-        applyContinuousFisheye(touchStartX.current, 0);
+        applyContinuousFisheye(dockX, 0);
 
-        Animated.spring(sliderAnim, {
-          toValue: idx,
-          friction: 6,
-          tension: 140,
-          useNativeDriver: true,
-        }).start();
-      },
-      onPanResponderMove: (_, gesture) => {
-        if (!isDragActiveRef.current) return;
-        if (Math.abs(gesture.dx) > 10 || Math.abs(gesture.dy) > 10) {
-          clearTimeout(longPressTimerRef.current);
-        }
-
-        const currentX = touchStartX.current + gesture.dx;
-        const slotW = dockWidthRef.current / 4;
-        const clampedX = Math.max(0, Math.min(dockWidthRef.current - 1, currentX));
-        const idx = Math.max(0, Math.min(3, Math.floor(clampedX / slotW)));
-
-        // Continuous Fluid Tracking for Slider & Tooltip
-        const fractionalPos = Math.max(0, Math.min(3, clampedX / slotW - 0.5));
+        // Fluid spring of slider towards current thumb touch point
         Animated.spring(sliderAnim, {
           toValue: fractionalPos,
           friction: 7,
-          tension: 140,
+          tension: 160,
+          useNativeDriver: true,
+        }).start();
+      },
+      onPanResponderMove: (evt, gesture) => {
+        if (!isDragActiveRef.current) return;
+
+        const screenX =
+          gesture.moveX ||
+          (gesture.x0 + gesture.dx) ||
+          evt.nativeEvent.pageX;
+        const dockX = getDockRelativeX(screenX, evt.nativeEvent.locationX);
+        const idx = getTabIndexFromDockX(dockX);
+        const fractionalPos = getFractionalPosFromDockX(dockX);
+
+        // Continuous Fluid Tracking for Slider & Tooltip right under thumb
+        Animated.spring(sliderAnim, {
+          toValue: fractionalPos,
+          friction: 7.5,
+          tension: 160,
           useNativeDriver: true,
         }).start();
 
         Animated.spring(tooltipX, {
           toValue: fractionalPos,
           friction: 6.5,
-          tension: 140,
+          tension: 160,
           useNativeDriver: true,
         }).start();
 
-        // Dynamic Mercury Stretch based on horizontal speed
+        // Dynamic Mercury Stretch based on horizontal sliding speed
         const speedStretch = Math.min(1.24, 1.0 + Math.abs(gesture.vx || 0) * 0.15);
         sliderScaleX.setValue(speedStretch);
 
-        // Continuous fisheye magnification
-        applyContinuousFisheye(clampedX, gesture.vx || 0);
+        // Continuous fisheye magnification as thumb scrubs left and right
+        applyContinuousFisheye(dockX, gesture.vx || 0);
 
         if (idx !== currentHoveredIdxRef.current) {
           currentHoveredIdxRef.current = idx;
@@ -688,26 +709,22 @@ function App() {
           triggerDockHaptic();
         }
       },
-      onPanResponderRelease: (_, gesture) => {
-        clearTimeout(longPressTimerRef.current);
+      onPanResponderRelease: (evt, gesture) => {
         isDragActiveRef.current = false;
         setIsDraggingDock(false);
-        const slotW = dockWidthRef.current / 4;
-        let finalIdx: number;
 
-        if (Math.abs(gesture.dx) < 6 && Math.abs(gesture.dy) < 6) {
-          // Tap / click
-          finalIdx = Math.max(0, Math.min(3, Math.floor(touchStartX.current / slotW)));
-        } else {
-          // Drag / slide release
-          const currentX = touchStartX.current + gesture.dx;
-          const clampedX = Math.max(0, Math.min(dockWidthRef.current - 1, currentX));
-          finalIdx = Math.max(0, Math.min(3, Math.floor(clampedX / slotW)));
-        }
+        const screenX =
+          gesture.moveX ||
+          (gesture.x0 + gesture.dx) ||
+          evt.nativeEvent.pageX;
+        const dockX = getDockRelativeX(screenX, evt.nativeEvent.locationX);
+        const finalIdx = getTabIndexFromDockX(dockX);
 
+        // Switch to the released tab
         const chosenTab = TABS[finalIdx].id;
         setActiveTab(chosenTab);
         setHoveredTabIndex(null);
+        triggerDockHaptic();
 
         // Release 3D compression
         Animated.spring(dockScale, {
@@ -731,7 +748,7 @@ function App() {
           }),
         ]).start();
 
-        // Snap slider into place with mercury bounce
+        // Snap slider cleanly into place with mercury bounce
         Animated.parallel([
           Animated.spring(sliderAnim, {
             toValue: finalIdx,
@@ -757,7 +774,6 @@ function App() {
         resetDockRestingState(finalIdx);
       },
       onPanResponderTerminate: () => {
-        clearTimeout(longPressTimerRef.current);
         isDragActiveRef.current = false;
         setIsDraggingDock(false);
         setHoveredTabIndex(null);
@@ -3729,10 +3745,10 @@ function App() {
                         translateX: tooltipX.interpolate({
                           inputRange: [0, 1, 2, 3],
                           outputRange: [
-                            -dockWidth * 0.36,
-                            -dockWidth * 0.12,
-                            dockWidth * 0.12,
-                            dockWidth * 0.36,
+                            -dockWidth * 0.375,
+                            -dockWidth * 0.125,
+                            dockWidth * 0.125,
+                            dockWidth * 0.375,
                           ],
                         }),
                       },
@@ -3766,6 +3782,7 @@ function App() {
 
               {/* Ambient Fluid Underglow that tracks slider position */}
               <Animated.View
+                pointerEvents="none"
                 style={[
                   styles.liquidDockGlowBackdrop,
                   {
@@ -3791,6 +3808,8 @@ function App() {
 
               {/* The Liquid Glass Capsule Dock */}
               <Animated.View
+                ref={dockWrapRef}
+                pointerEvents="box-only"
                 style={[
                   styles.liquidDockPill,
                   {
@@ -3802,7 +3821,13 @@ function App() {
                   const w = e.nativeEvent.layout.width;
                   if (w > 0 && Math.abs(w - dockWidthRef.current) > 2) {
                     setDockWidth(w);
+                    dockWidthRef.current = w;
                   }
+                  dockWrapRef.current?.measureInWindow((x: number) => {
+                    if (x !== undefined && !isNaN(x)) {
+                      dockLeftRef.current = x;
+                    }
+                  });
                 }}
                 {...dockPanResponder.panHandlers}
               >
