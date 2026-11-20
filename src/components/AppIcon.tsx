@@ -37,7 +37,7 @@ interface AppIconProps {
   style?: ViewStyle;
 }
 
-export const AppIcon: React.FC<AppIconProps> = ({
+const AppIconComponent: React.FC<AppIconProps> = ({
   name,
   size = 20,
   color = '#6ee3ad',
@@ -648,3 +648,6 @@ export const AppIcon: React.FC<AppIconProps> = ({
       );
   }
 };
+
+export const AppIcon = React.memo(AppIconComponent);
+

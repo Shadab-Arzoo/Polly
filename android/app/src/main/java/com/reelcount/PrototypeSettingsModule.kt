@@ -295,11 +295,21 @@ class PrototypeSettingsModule(context: ReactApplicationContext) : ReactContextBa
     }
   }
 
+  @Volatile
+  private var lastAccessibilityCheckTime = 0L
+  @Volatile
+  private var cachedAccessibilityEnabled = false
+
   private fun isAccessibilityServiceEnabled(): Boolean {
+    val now = System.currentTimeMillis()
+    if (now - lastAccessibilityCheckTime < 3000L) {
+      return cachedAccessibilityEnabled
+    }
     val context = reactApplicationContext
     val expectedFull = "${context.packageName}/${ReelCountAccessibilityService::class.java.name}"
     val expectedShort = "${context.packageName}/.tracking.ReelCountAccessibilityService"
 
+    var result = false
     try {
       val am = context.getSystemService(Context.ACCESSIBILITY_SERVICE) as? AccessibilityManager
       if (am != null) {
@@ -308,29 +318,37 @@ class PrototypeSettingsModule(context: ReactApplicationContext) : ReactContextBa
           val info = service.resolveInfo?.serviceInfo
           if (info != null && info.packageName == context.packageName &&
             (info.name == ReelCountAccessibilityService::class.java.name || info.name.endsWith("ReelCountAccessibilityService"))) {
-            return true
+            result = true
+            break
           }
         }
       }
     } catch (_: Exception) {}
 
-    try {
-      val settingValue = Settings.Secure.getString(
-        context.contentResolver,
-        Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES
-      ) ?: return false
-      val splitter = TextUtils.SimpleStringSplitter(':')
-      splitter.setString(settingValue)
-      while (splitter.hasNext()) {
-        val component = splitter.next()
-        if (component.equals(expectedFull, ignoreCase = true) ||
-          component.equals(expectedShort, ignoreCase = true) ||
-          component.contains("ReelCountAccessibilityService", ignoreCase = true)) {
-          return true
+    if (!result) {
+      try {
+        val settingValue = Settings.Secure.getString(
+          context.contentResolver,
+          Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES
+        )
+        if (settingValue != null) {
+          val splitter = TextUtils.SimpleStringSplitter(':')
+          splitter.setString(settingValue)
+          while (splitter.hasNext()) {
+            val component = splitter.next()
+            if (component.equals(expectedFull, ignoreCase = true) ||
+              component.equals(expectedShort, ignoreCase = true) ||
+              component.contains("ReelCountAccessibilityService", ignoreCase = true)) {
+              result = true
+              break
+            }
+          }
         }
-      }
-    } catch (_: Exception) {}
+      } catch (_: Exception) {}
+    }
 
-    return false
+    cachedAccessibilityEnabled = result
+    lastAccessibilityCheckTime = now
+    return result
   }
 }

@@ -1,7 +1,9 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   Alert,
   Animated,
+  AppState,
+  type AppStateStatus,
   Easing,
   Image,
   Modal,
@@ -47,6 +49,352 @@ type UserMood = 'zen' | 'focused' | 'distracted' | 'craving';
 type FocusSoundscape = 'rain' | 'forest' | 'waves' | 'cafe' | 'cosmic' | 'none';
 type TriggerType = 'boredom' | 'stress' | 'procrastination' | 'habit' | 'fomo';
 
+
+interface ThemeConfig {
+  primary: string;
+  primaryDark: string;
+  glow: string;
+  accentGlow: string;
+  border: string;
+  surface: string;
+  surfaceRaised: string;
+  background: string;
+  hairline: string;
+  actionFill: string;
+  actionText: string;
+  subtext: string;
+  name: string;
+  tagline: string;
+  iconName: IconName;
+  previewBadge: string;
+}
+
+const THEME_COLORS: Record<ThemeAccent, ThemeConfig> = {
+  mint: {
+    primary: '#6ee3ad',
+    primaryDark: '#34d399',
+    glow: 'rgba(110, 227, 173, 0.16)',
+    accentGlow: 'rgba(110, 227, 173, 0.32)',
+    border: 'rgba(110, 227, 173, 0.45)',
+    surface: '#09130e',
+    surfaceRaised: '#112019',
+    background: '#030705',
+    hairline: '#192d23',
+    actionFill: '#132b1e',
+    actionText: '#e8fff4',
+    subtext: '#76a38b',
+    name: 'Obsidian Mint',
+    tagline: 'Deep Zen Clarity',
+    iconName: 'sparkle',
+    previewBadge: '🌱',
+  },
+  emerald: {
+    primary: '#6ee3ad',
+    primaryDark: '#34d399',
+    glow: 'rgba(110, 227, 173, 0.16)',
+    accentGlow: 'rgba(110, 227, 173, 0.32)',
+    border: 'rgba(110, 227, 173, 0.45)',
+    surface: '#09130e',
+    surfaceRaised: '#112019',
+    background: '#030705',
+    hairline: '#192d23',
+    actionFill: '#132b1e',
+    actionText: '#e8fff4',
+    subtext: '#76a38b',
+    name: 'Obsidian Mint',
+    tagline: 'Deep Zen Clarity',
+    iconName: 'sparkle',
+    previewBadge: '🌱',
+  },
+  cyan: {
+    primary: '#38bdf8',
+    primaryDark: '#0284c7',
+    glow: 'rgba(56, 189, 248, 0.16)',
+    accentGlow: 'rgba(56, 189, 248, 0.32)',
+    border: 'rgba(56, 189, 248, 0.45)',
+    surface: '#07121a',
+    surfaceRaised: '#0d1d2b',
+    background: '#02080d',
+    hairline: '#152e42',
+    actionFill: '#0c2538',
+    actionText: '#e0f2fe',
+    subtext: '#6594b2',
+    name: 'Cyber Sky',
+    tagline: 'Electric Flow State',
+    iconName: 'wave',
+    previewBadge: '⚡',
+  },
+  amethyst: {
+    primary: '#c084fc',
+    primaryDark: '#9333ea',
+    glow: 'rgba(192, 132, 252, 0.16)',
+    accentGlow: 'rgba(192, 132, 252, 0.32)',
+    border: 'rgba(192, 132, 252, 0.45)',
+    surface: '#12091c',
+    surfaceRaised: '#1c102b',
+    background: '#07030c',
+    hairline: '#2b1842',
+    actionFill: '#26133c',
+    actionText: '#f3e8ff',
+    subtext: '#9978b8',
+    name: 'Amethyst Aura',
+    tagline: 'Mystic Calm & Depth',
+    iconName: 'zen',
+    previewBadge: '🔮',
+  },
+  amber: {
+    primary: '#fbbf24',
+    primaryDark: '#d97706',
+    glow: 'rgba(251, 191, 36, 0.16)',
+    accentGlow: 'rgba(251, 191, 36, 0.32)',
+    border: 'rgba(251, 191, 36, 0.45)',
+    surface: '#161005',
+    surfaceRaised: '#221908',
+    background: '#0a0702',
+    hairline: '#36280d',
+    actionFill: '#30220a',
+    actionText: '#fef3c7',
+    subtext: '#b09363',
+    name: 'Solar Amber',
+    tagline: 'Vitality & Focus',
+    iconName: 'flame',
+    previewBadge: '☀️',
+  },
+  rose: {
+    primary: '#fb7185',
+    primaryDark: '#e11d48',
+    glow: 'rgba(251, 113, 133, 0.16)',
+    accentGlow: 'rgba(251, 113, 133, 0.32)',
+    border: 'rgba(251, 113, 133, 0.45)',
+    surface: '#17070b',
+    surfaceRaised: '#240d14',
+    background: '#0a0205',
+    hairline: '#38141f',
+    actionFill: '#32111c',
+    actionText: '#ffe4e6',
+    subtext: '#b56f80',
+    name: 'Neon Rose',
+    tagline: 'Radical Awareness',
+    iconName: 'target',
+    previewBadge: '🌹',
+  },
+  monochrome: {
+    primary: '#f9f8f9',
+    primaryDark: '#94a3b8',
+    glow: 'rgba(255, 255, 255, 0.12)',
+    accentGlow: 'rgba(255, 255, 255, 0.28)',
+    border: 'rgba(255, 255, 255, 0.35)',
+    surface: '#111111',
+    surfaceRaised: '#1c1c1c',
+    background: '#050505',
+    hairline: '#2a2a2a',
+    actionFill: '#242424',
+    actionText: '#ffffff',
+    subtext: '#9e9e9e',
+    name: 'Pure Titanium',
+    tagline: 'Brutalist Minimal',
+    iconName: 'moon',
+    previewBadge: '⚪',
+  },
+};
+const themeColors = THEME_COLORS;
+
+const groundingSteps = [
+  {
+    num: 5,
+    sense: '👀 SEE',
+    title: 'Acknowledge 5 things you can see',
+    prompt: 'Look around your room or space. Notice the shapes, colors, or shadows of 5 objects.',
+  },
+  {
+    num: 4,
+    sense: '✋ FEEL',
+    title: 'Acknowledge 4 things you can touch',
+    prompt: 'Feel your feet on the floor, the texture of your clothing, the chair beneath you, or the cool air.',
+  },
+  {
+    num: 3,
+    sense: '👂 HEAR',
+    title: 'Acknowledge 3 sounds you can hear',
+    prompt: 'Listen for subtle noises: the hum of electronics, distant chatter, your breath, or outdoor ambience.',
+  },
+  {
+    num: 2,
+    sense: '👃 SMELL',
+    title: 'Acknowledge 2 things you can smell',
+    prompt: 'Take two conscious inhalations through your nose. Notice any ambient scent in the air.',
+  },
+  {
+    num: 1,
+    sense: '👅 TASTE',
+    title: 'Acknowledge 1 thing you can taste',
+    prompt: 'Swallow, relax your jaw, or take a sip of cool water. Feel your prefrontal cortex return to clarity.',
+  },
+];
+
+const STROOP_TRIALS = [
+  { text: 'BLUE', color: '#38d39f', colorName: 'Emerald' },
+  { text: 'RED', color: '#22d3ee', colorName: 'Cyan' },
+  { text: 'AMBER', color: '#c084fc', colorName: 'Amethyst' },
+  { text: 'GREEN', color: '#fbbf24', colorName: 'Amber' },
+  { text: 'CYAN', color: '#38d39f', colorName: 'Emerald' },
+];
+
+const TRIGGER_DATA: Record<TriggerType, { label: string; icon: string; advice: string }> = {
+  boredom: {
+    label: 'Boredom',
+    icon: '🥱',
+    advice: 'Boredom is the brain seeking stimulation. Channel it into a 2-minute physical stretch or hydration.',
+  },
+  stress: {
+    label: 'Stress & Anxiety',
+    icon: '😓',
+    advice: 'Doomscrolling adds cognitive cortisol. Use the 4-4-4 Box Breathing reset to down-regulate your nervous system.',
+  },
+  procrastination: {
+    label: 'Procrastination',
+    icon: '⏳',
+    advice: 'Try the 2-Minute Rule: commit to doing just 120 seconds of your pending task. Starting breaks the freeze.',
+  },
+  habit: {
+    label: 'Muscle Memory',
+    icon: '🔁',
+    advice: 'Your thumb unlocked out of reflex. The Mindful Floating HUD is here to make the invisible visible.',
+  },
+  fomo: {
+    label: 'FOMO',
+    icon: '👥',
+    advice: 'Algorithms manufacture synthetic urgency. Nothing happening on social media warrants losing your focus today.',
+  },
+};
+
+const intentionsList = [
+  { id: '1', title: 'Deep Work First, Feeds Later', icon: '🛡️' },
+  { id: '2', title: 'Conscious Intent, No Idle Swipes', icon: '🌿' },
+  { id: '3', title: 'Screens Off 1hr Before Sleep', icon: '🌙' },
+  { id: '4', title: 'Three Breaths Before Unlocking', icon: '🧘' },
+];
+
+const soundscapesList = [
+  { id: 'rain' as FocusSoundscape, name: 'Gentle Rain', icon: '🌧️', desc: 'Calming rain drops' },
+  { id: 'forest' as FocusSoundscape, name: 'Pine Forest', icon: '🌲', desc: 'Wind through trees' },
+  { id: 'waves' as FocusSoundscape, name: 'Ocean Waves', icon: '🌊', desc: 'Rhythmic surf' },
+  { id: 'cafe' as FocusSoundscape, name: 'Quiet Library', icon: '☕', desc: 'Soft ambient hum' },
+  { id: 'cosmic' as FocusSoundscape, name: 'Cosmic Binaural', icon: '🌌', desc: '432Hz deep focus' },
+];
+
+const moodsList = [
+  { id: 'zen' as UserMood, label: 'Zen & Calm', icon: '😊', tip: 'Your mind is present and centered.' },
+  { id: 'focused' as UserMood, label: 'Laser Focused', icon: '🎯', tip: 'Keep this deep momentum going.' },
+  { id: 'distracted' as UserMood, label: 'Mildly Restless', icon: '😐', tip: 'Take a sip of water or 1m breath.' },
+  { id: 'craving' as UserMood, label: 'Overstimulated', icon: '🌊', tip: 'Surf the wave with Craving SOS.' },
+];
+
+const getHourDopamineProfile = (h: number) => {
+  if (h >= 6 && h < 11) {
+    return {
+      period: 'Morning Awakening & Focus',
+      risk: 'Low Risk · High Willpower',
+      color: '#38d39f',
+      icon: '☀️',
+      tip: 'Cortisol awakening response primes natural clarity. Keep short feeds locked during this sacred window.',
+    };
+  }
+  if (h >= 11 && h < 14) {
+    return {
+      period: 'Peak Execution Window',
+      risk: 'Optimal Productivity',
+      color: '#22d3ee',
+      icon: '🎯',
+      tip: 'High executive stamina. Perfect time for deep work sprints before the afternoon energy dip.',
+    };
+  }
+  if (h >= 14 && h < 18) {
+    return {
+      period: 'Afternoon Slump & Vulnerability',
+      risk: 'High Vulnerability Spike',
+      color: '#fbbf24',
+      icon: '⚡',
+      tip: 'Natural circadian dip in core temperature & dopamine. Brain seeks instant gratification. Use Focus Shield.',
+    };
+  }
+  if (h >= 18 && h < 22) {
+    return {
+      period: 'Twilight Leisure & Social',
+      risk: 'Moderate Risk',
+      color: '#a78bfa',
+      icon: '🌇',
+      tip: 'Conscious wind-down time. Choose books, walks, or real conversations over mindless vertical swipes.',
+    };
+  }
+  return {
+    period: 'Melatonin Guard & Sleep Recovery',
+    risk: 'Critical Disruption Zone',
+    color: '#f87171',
+    icon: '🌙',
+    tip: 'Short-form rapid video suppresses melatonin synthesis by up to 90 min. Keep phone away from bed.',
+  };
+};
+
+const getZenLevel = (xp: number) => {
+  if (xp >= 1200) return { level: 5, title: 'Zen Grandmaster', icon: '🌟', min: 1200, max: 2000 };
+  if (xp >= 700) return { level: 4, title: 'Attention Sovereign', icon: '👑', min: 700, max: 1200 };
+  if (xp >= 350) return { level: 3, title: 'Dopamine Alchemist', icon: '🔮', min: 350, max: 700 };
+  if (xp >= 150) return { level: 2, title: 'Feed Resistor', icon: '🛡️', min: 150, max: 350 };
+  return { level: 1, title: 'Mindful Spark', icon: '🌱', min: 0, max: 150 };
+};
+
+const formatTimer = (sec: number) => {
+  const m = Math.floor(sec / 60);
+  const s = sec % 60;
+  return `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
+};
+
+const getGreeting = () => {
+  const hour = new Date().getHours();
+  if (hour < 12) return { text: 'Good morning', icon: '☀️', tip: 'Fresh start — keep your morning scroll-free.' };
+  if (hour < 17) return { text: 'Good afternoon', icon: '⚡', tip: 'Notice if boredom triggers unconscious swipes.' };
+  if (hour < 22) return { text: 'Good evening', icon: '🌇', tip: 'Wind down your dopamine levels for sound sleep.' };
+  return { text: 'Late night hours', icon: '🌙', tip: 'Protect your melatonin and deep recovery rest.' };
+};
+
+const getChronoAnalysis = () => {
+  const hour = new Date().getHours();
+  if (hour >= 22 || hour < 5) {
+    return {
+      level: 'Critical Vulnerability',
+      badgeColor: '#f87171',
+      icon: '🌙',
+      title: 'Melatonin & Deep Sleep Disruption',
+      advice: 'Scrolling past 10 PM delays REM sleep by up to 90 minutes. Engage the Bedtime Shield now.',
+    };
+  }
+  if (hour >= 13 && hour < 17) {
+    return {
+      level: 'Moderate Slump Risk',
+      badgeColor: '#fbbf24',
+      icon: '⚡',
+      title: 'Afternoon Dopamine Fatigue',
+      advice: 'Post-lunch cognitive drops trigger reflex swipes. Swap phone for 5 minutes of sunlight or cold water.',
+    };
+  }
+  if (hour >= 5 && hour < 11) {
+    return {
+      level: 'Protected Morning Window',
+      badgeColor: '#38d39f',
+      icon: '☀️',
+      title: 'Morning Cortisol Alignment',
+      advice: 'Keeping your first 60 minutes screen-free primes dopamine baseline for the entire day.',
+    };
+  }
+  return {
+    level: 'Evening Transition Zone',
+    badgeColor: '#a78bfa',
+    icon: '🌇',
+    title: 'Evening Decompression',
+    advice: 'Avoid doomscrolling while unwinding. Give your eyes and mind real physical downtime.',
+  };
+};
 
 function App() {
   const { width: windowWidth } = useWindowDimensions();
@@ -266,7 +614,24 @@ function App() {
   // Water Droplet Touch Ripple
   const rippleAnim = useRef(new Animated.Value(0)).current;
   const rippleOpacity = useRef(new Animated.Value(0)).current;
-  const [rippleCoord, setRippleCoord] = useState({ x: 0, y: 0 });
+  const rippleX = useRef(new Animated.Value(0)).current;
+  const rippleY = useRef(new Animated.Value(0)).current;
+  const tooltipVisibleRef = useRef(false);
+
+  // Lazy tab virtualization state - visited tabs remain mounted in memory for 0ms instant tab switching
+  const [visitedTabs, setVisitedTabs] = useState<Record<Tab, boolean>>({
+    counter: true,
+    timers: false,
+    block: false,
+    settings: false,
+  });
+
+  useEffect(() => {
+    setVisitedTabs(prev => {
+      if (prev[activeTab]) return prev;
+      return { ...prev, [activeTab]: true };
+    });
+  }, [activeTab]);
 
   // Icon bounce animations
   const iconBounceAnims = useRef([
@@ -455,7 +820,7 @@ function App() {
     } catch (_) {}
   };
 
-  // Continuous Bell-Curve Fisheye Magnification
+  // Continuous Bell-Curve Fisheye Magnification - Direct 1:1 hardware values during dragging
   const applyContinuousFisheye = (fingerX: number, velocityX = 0) => {
     const slotW = (dockWidthRef.current - 12) / 4;
     for (let i = 0; i < 4; i++) {
@@ -467,26 +832,9 @@ function App() {
       const targetY = -factor * 5.0; // lifts up to -5.0dp without clipping top border
       const tiltVal = Math.max(-6, Math.min(6, velocityX * 8));
 
-      Animated.parallel([
-        Animated.spring(tabScaleAnims[i], {
-          toValue: targetScale,
-          friction: 6,
-          tension: 140,
-          useNativeDriver: true,
-        }),
-        Animated.spring(tabTranslateYAnims[i], {
-          toValue: targetY,
-          friction: 6,
-          tension: 140,
-          useNativeDriver: true,
-        }),
-        Animated.spring(tabTiltAnims[i], {
-          toValue: dist < 1.0 ? tiltVal : 0,
-          friction: 5,
-          tension: 140,
-          useNativeDriver: true,
-        }),
-      ]).start();
+      tabScaleAnims[i].setValue(targetScale);
+      tabTranslateYAnims[i].setValue(targetY);
+      tabTiltAnims[i].setValue(dist < 1.0 ? tiltVal : 0);
     }
   };
 
@@ -626,8 +974,9 @@ function App() {
         setHoveredTabIndex(idx);
         triggerDockHaptic();
 
-        // Touch ripple animation inside dock
-        setRippleCoord({ x: dockX, y: evt.nativeEvent.locationY || 35 });
+        // Touch ripple animation inside dock using native animated driver
+        rippleX.setValue(dockX);
+        rippleY.setValue(evt.nativeEvent.locationY || 35);
         rippleAnim.setValue(0);
         rippleOpacity.setValue(0.5);
         Animated.parallel([
@@ -674,37 +1023,29 @@ function App() {
         const idx = getTabIndexFromDockX(dockX);
         const fractionalPos = getFractionalPosFromDockX(dockX);
 
-        // Smoothly reveal scrub preview tooltip capsule when scrubbing starts
+        // Smoothly reveal scrub preview tooltip capsule when scrubbing starts (single trigger)
         if (Math.abs(gesture.dx) > 3 || Math.abs(gesture.dy) > 3) {
-          Animated.parallel([
-            Animated.spring(tooltipScale, {
-              toValue: 1.0,
-              friction: 6,
-              tension: 130,
-              useNativeDriver: true,
-            }),
-            Animated.timing(tooltipOpacity, {
-              toValue: 1,
-              duration: 120,
-              useNativeDriver: true,
-            }),
-          ]).start();
+          if (!tooltipVisibleRef.current) {
+            tooltipVisibleRef.current = true;
+            Animated.parallel([
+              Animated.spring(tooltipScale, {
+                toValue: 1.0,
+                friction: 6,
+                tension: 130,
+                useNativeDriver: true,
+              }),
+              Animated.timing(tooltipOpacity, {
+                toValue: 1,
+                duration: 120,
+                useNativeDriver: true,
+              }),
+            ]).start();
+          }
         }
 
-        // Continuous Fluid Tracking for Slider & Tooltip right under thumb
-        Animated.spring(sliderAnim, {
-          toValue: fractionalPos,
-          friction: 7.5,
-          tension: 160,
-          useNativeDriver: true,
-        }).start();
-
-        Animated.spring(tooltipX, {
-          toValue: fractionalPos,
-          friction: 6.5,
-          tension: 160,
-          useNativeDriver: true,
-        }).start();
+        // Direct fluid tracking for Slider & Tooltip right under thumb (0ms latency, 0 physics contention)
+        sliderAnim.setValue(fractionalPos);
+        tooltipX.setValue(fractionalPos);
 
         // Dynamic Mercury Stretch based on horizontal sliding speed
         const speedStretch = Math.min(1.24, 1.0 + Math.abs(gesture.vx || 0) * 0.15);
@@ -722,6 +1063,7 @@ function App() {
       onPanResponderRelease: (evt, gesture) => {
         isDragActiveRef.current = false;
         setIsDraggingDock(false);
+        tooltipVisibleRef.current = false;
 
         const screenX =
           gesture?.moveX ||
@@ -744,7 +1086,7 @@ function App() {
           useNativeDriver: true,
         }).start();
 
-        // Hide Scrub Tooltip
+        // Hide Scrub Tooltip and smoothly spring to final position
         Animated.parallel([
           Animated.timing(tooltipOpacity, {
             toValue: 0,
@@ -756,39 +1098,36 @@ function App() {
             duration: 160,
             useNativeDriver: true,
           }),
+          Animated.spring(sliderAnim, {
+            toValue: finalIdx,
+            friction: 6.5,
+            tension: 110,
+            useNativeDriver: true,
+          }),
+          Animated.spring(tooltipX, {
+            toValue: finalIdx,
+            friction: 6.5,
+            tension: 110,
+            useNativeDriver: true,
+          }),
+          Animated.spring(sliderScaleX, {
+            toValue: 1.0,
+            friction: 5,
+            tension: 110,
+            useNativeDriver: true,
+          }),
         ]).start();
 
         if (chosenTab !== activeTab) {
           setActiveTab(chosenTab);
         } else {
-          // Snap slider cleanly back into place if staying on same tab
-          Animated.parallel([
-            Animated.spring(sliderAnim, {
-              toValue: finalIdx,
-              friction: 6,
-              tension: 90,
-              useNativeDriver: true,
-            }),
-            Animated.sequence([
-              Animated.timing(sliderScaleX, {
-                toValue: 0.94,
-                duration: 70,
-                useNativeDriver: true,
-              }),
-              Animated.spring(sliderScaleX, {
-                toValue: 1.0,
-                friction: 5,
-                tension: 120,
-                useNativeDriver: true,
-              }),
-            ]),
-          ]).start();
           resetDockRestingState(finalIdx);
         }
       },
       onPanResponderTerminate: () => {
         isDragActiveRef.current = false;
         setIsDraggingDock(false);
+        tooltipVisibleRef.current = false;
         setHoveredTabIndex(null);
         const activeIdx = TAB_INDEX_MAP[activeTab];
 
@@ -806,6 +1145,13 @@ function App() {
         }).start();
 
         Animated.spring(sliderAnim, {
+          toValue: activeIdx,
+          friction: 6,
+          tension: 90,
+          useNativeDriver: true,
+        }).start();
+
+        Animated.spring(tooltipX, {
           toValue: activeIdx,
           friction: 6,
           tension: 90,
@@ -851,77 +1197,163 @@ function App() {
     snapchatCount: 0,
   });
 
-  // Load status and history periodically
+  // Load status and history periodically with smart diffing and background pause
   useEffect(() => {
     let mounted = true;
+    let interval: ReturnType<typeof setInterval> | null = null;
+
     const refreshStatus = () => {
       PrototypeSettings.getPrototypeStatus()
         .then(status => {
-          if (mounted && status) {
-            setPrototypeStatus(status);
-            if (status.dailyShortLimit) {
-              setDailyLimit(status.dailyShortLimit);
+          if (!mounted || !status) return;
+
+          setPrototypeStatus(prev => {
+            if (
+              prev.candidateCount === status.candidateCount &&
+              prev.serviceConnected === status.serviceConnected &&
+              prev.instagramCount === status.instagramCount &&
+              prev.tiktokCount === status.tiktokCount &&
+              prev.youtubeCount === status.youtubeCount &&
+              prev.snapchatCount === status.snapchatCount &&
+              prev.dailyShortLimit === status.dailyShortLimit &&
+              prev.dailyTimeLimitMinutes === status.dailyTimeLimitMinutes &&
+              prev.focusModeActive === status.focusModeActive &&
+              prev.focusRemainingSeconds === status.focusRemainingSeconds &&
+              prev.zenXp === status.zenXp &&
+              prev.hudStyle === status.hudStyle &&
+              prev.bedtimeShieldEnabled === status.bedtimeShieldEnabled &&
+              prev.themeAccent === status.themeAccent &&
+              prev.onboardingCompleted === status.onboardingCompleted
+            ) {
+              return prev;
             }
-            if (status.hudStyle) {
-              setHudStyle(status.hudStyle as HudStyle);
-            }
-            if (status.bedtimeShieldEnabled !== undefined) {
-              setBedtimeShield(status.bedtimeShieldEnabled);
-            }
-            if (status.doomscrollAlertEnabled !== undefined) {
-              setDoomscrollAlert(status.doomscrollAlertEnabled);
-            }
-            if (status.breakReminderEnabled !== undefined) {
-              setBreakReminder(status.breakReminderEnabled);
-            }
-            if (status.speedbumpEnabled !== undefined) {
-              setSpeedbumpEnabled(status.speedbumpEnabled);
-            }
-            if (status.zenXp !== undefined) {
-              setZenXp(status.zenXp);
-            }
-            if (status.userIntention) {
-              setSelectedIntention(status.userIntention);
-            }
-            if (status.userMood) {
-              setTodayMood(status.userMood as UserMood);
-            }
-            if (status.triggerBoredom !== undefined) {
-              setTriggersLog({
-                boredom: status.triggerBoredom ?? 3,
-                stress: status.triggerStress ?? 2,
-                procrastination: status.triggerProcrastination ?? 4,
-                habit: status.triggerHabit ?? 5,
-                fomo: status.triggerFomo ?? 1,
-              });
-            }
-            if (status.themeAccent) {
-              const savedAccent = status.themeAccent.toLowerCase() as ThemeAccent;
-              if (savedAccent === 'mint' || savedAccent === 'cyan' || savedAccent === 'amethyst' || savedAccent === 'amber' || savedAccent === 'monochrome' || savedAccent === 'emerald') {
-                setThemeAccent(savedAccent);
+            return status;
+          });
+
+          if (status.dailyShortLimit !== undefined) {
+            const val = status.dailyShortLimit;
+            setDailyLimit(prev => (prev !== val ? val : prev));
+          }
+          if (status.hudStyle) {
+            const val = status.hudStyle as HudStyle;
+            setHudStyle(prev => (prev !== val ? val : prev));
+          }
+          if (status.bedtimeShieldEnabled !== undefined) {
+            const val = status.bedtimeShieldEnabled;
+            setBedtimeShield(prev => (prev !== val ? val : prev));
+          }
+          if (status.doomscrollAlertEnabled !== undefined) {
+            const val = status.doomscrollAlertEnabled;
+            setDoomscrollAlert(prev => (prev !== val ? val : prev));
+          }
+          if (status.breakReminderEnabled !== undefined) {
+            const val = status.breakReminderEnabled;
+            setBreakReminder(prev => (prev !== val ? val : prev));
+          }
+          if (status.speedbumpEnabled !== undefined) {
+            const val = status.speedbumpEnabled;
+            setSpeedbumpEnabled(prev => (prev !== val ? val : prev));
+          }
+          if (status.zenXp !== undefined) {
+            const val = status.zenXp;
+            setZenXp(prev => (prev !== val ? val : prev));
+          }
+          if (status.userIntention) {
+            const val = status.userIntention;
+            setSelectedIntention(prev => (prev !== val ? val : prev));
+          }
+          if (status.userMood) {
+            const val = status.userMood as UserMood;
+            setTodayMood(prev => (prev !== val ? val : prev));
+          }
+          if (status.triggerBoredom !== undefined) {
+            setTriggersLog(prev => {
+              const b = status.triggerBoredom ?? 3;
+              const s = status.triggerStress ?? 2;
+              const p = status.triggerProcrastination ?? 4;
+              const h = status.triggerHabit ?? 5;
+              const f = status.triggerFomo ?? 1;
+              if (
+                prev.boredom === b &&
+                prev.stress === s &&
+                prev.procrastination === p &&
+                prev.habit === h &&
+                prev.fomo === f
+              ) {
+                return prev;
               }
+              return { boredom: b, stress: s, procrastination: p, habit: h, fomo: f };
+            });
+          }
+          if (status.themeAccent) {
+            const savedAccent = status.themeAccent.toLowerCase() as ThemeAccent;
+            if (
+              savedAccent === 'mint' ||
+              savedAccent === 'cyan' ||
+              savedAccent === 'amethyst' ||
+              savedAccent === 'amber' ||
+              savedAccent === 'monochrome' ||
+              savedAccent === 'emerald' ||
+              savedAccent === 'rose'
+            ) {
+              setThemeAccent(prev => (prev !== savedAccent ? savedAccent : prev));
             }
-            if (status.onboardingCompleted && !hasManuallyOpenedIntro) {
-              setShowIntro(false);
-            }
+          }
+          if (status.onboardingCompleted && !hasManuallyOpenedIntro) {
+            setShowIntro(false);
           }
         })
         .catch(() => {});
 
       PrototypeSettings.getDailyHistory()
         .then(history => {
-          if (mounted && history && history.length > 0) {
-            setDayHistory(history);
-          }
+          if (!mounted || !history || history.length === 0) return;
+          setDayHistory(prev => {
+            if (
+              prev.length === history.length &&
+              prev.every(
+                (item, i) =>
+                  item.date === history[i].date &&
+                  item.count === history[i].count &&
+                  item.label === history[i].label,
+              )
+            ) {
+              return prev;
+            }
+            return history;
+          });
         })
         .catch(() => {});
     };
 
-    refreshStatus();
-    const interval = setInterval(refreshStatus, 1500);
+    const startPolling = () => {
+      if (interval) clearInterval(interval);
+      refreshStatus();
+      interval = setInterval(refreshStatus, 3000);
+    };
+
+    const stopPolling = () => {
+      if (interval) {
+        clearInterval(interval);
+        interval = null;
+      }
+    };
+
+    const handleAppStateChange = (nextAppState: AppStateStatus) => {
+      if (nextAppState === 'active') {
+        startPolling();
+      } else {
+        stopPolling();
+      }
+    };
+
+    const sub = AppState.addEventListener('change', handleAppStateChange);
+    startPolling();
+
     return () => {
       mounted = false;
-      clearInterval(interval);
+      stopPolling();
+      sub.remove();
     };
   }, [hasManuallyOpenedIntro]);
 
@@ -1209,23 +1641,17 @@ function App() {
   const ytCount = prototypeStatus.youtubeCount ?? 0;
   const scCount = prototypeStatus.snapchatCount ?? 0;
 
-  // 7-Day Stats
-  const weeklyTotal = dayHistory.reduce((acc, cur) => acc + cur.count, 0);
-  const dailyAverage = dayHistory.length > 0 ? Math.round(weeklyTotal / dayHistory.length) : totalShorts;
+  // 7-Day Stats (memoized)
+  const dailyAverage = useMemo(() => {
+    if (dayHistory.length === 0) return totalShorts;
+    const total = dayHistory.reduce((acc, cur) => acc + cur.count, 0);
+    return Math.round(total / dayHistory.length);
+  }, [dayHistory, totalShorts]);
 
-  // Greeting based on current hour
-  const getGreeting = () => {
-    const hour = new Date().getHours();
-    if (hour < 12) return { text: 'Good morning', icon: '☀️', tip: 'Fresh start — keep your morning scroll-free.' };
-    if (hour < 17) return { text: 'Good afternoon', icon: '⚡', tip: 'Notice if boredom triggers unconscious swipes.' };
-    if (hour < 22) return { text: 'Good evening', icon: '🌇', tip: 'Wind down your dopamine levels for sound sleep.' };
-    return { text: 'Late night hours', icon: '🌙', tip: 'Protect your melatonin and deep recovery rest.' };
-  };
+  const greeting = useMemo(() => getGreeting(), []);
 
-  const greeting = getGreeting();
-
-  // Dynamic Mindful Streak
-  const calculateStreak = () => {
+  // Dynamic Mindful Streak (memoized)
+  const mindfulStreak = useMemo(() => {
     let streak = 0;
     if (totalShorts <= dailyLimit) {
       streak += 1;
@@ -1239,8 +1665,7 @@ function App() {
       }
     }
     return Math.max(1, streak);
-  };
-  const mindfulStreak = calculateStreak();
+  }, [totalShorts, dailyLimit, dayHistory]);
 
   // Life Reclaimed Beyond Screen
   const typicalDailyDoomscrollMins = 90;
@@ -1248,258 +1673,46 @@ function App() {
   const bookPagesEquivalent = Math.max(1, Math.round(estMinutes * 0.75));
   const walkingStepsEquivalent = Math.max(50, Math.round(estMinutes * 95));
 
-  // Chrono-Shield Vulnerability Assessment
-  const getChronoAnalysis = () => {
-    const hour = new Date().getHours();
-    if (hour >= 22 || hour < 5) {
-      return {
-        level: 'Critical Vulnerability',
-        badgeColor: '#f87171',
-        icon: '🌙',
-        title: 'Melatonin & Deep Sleep Disruption',
-        advice: 'Scrolling past 10 PM delays REM sleep by up to 90 minutes. Engage the Bedtime Shield now.',
-      };
-    }
-    if (hour >= 13 && hour < 17) {
-      return {
-        level: 'Moderate Slump Risk',
-        badgeColor: '#fbbf24',
-        icon: '⚡',
-        title: 'Afternoon Dopamine Fatigue',
-        advice: 'Post-lunch cognitive drops trigger reflex swipes. Swap phone for 5 minutes of sunlight or cold water.',
-      };
-    }
-    if (hour >= 5 && hour < 11) {
-      return {
-        level: 'Protected Morning Window',
-        badgeColor: '#38d39f',
-        icon: '☀️',
-        title: 'Morning Cortisol Alignment',
-        advice: 'Keeping your first 60 minutes screen-free primes dopamine baseline for the entire day.',
-      };
-    }
-    return {
-      level: 'Evening Transition Zone',
-      badgeColor: '#a78bfa',
-      icon: '🌇',
-      title: 'Evening Decompression',
-      advice: 'Avoid doomscrolling while unwinding. Give your eyes and mind real physical downtime.',
-    };
-  };
+  const chronoShield = useMemo(() => getChronoAnalysis(), []);
 
-  const chronoShield = getChronoAnalysis();
+  const milestones = useMemo(
+    () => [
+      {
+        id: 'cap',
+        icon: '🎯',
+        name: 'Cap Champion',
+        desc: 'Inside daily target',
+        unlocked: totalShorts <= dailyLimit,
+      },
+      {
+        id: 'zen',
+        icon: '🧘',
+        name: 'Zen Master',
+        desc: 'Used Craving Reset',
+        unlocked: true,
+      },
+      {
+        id: 'shield',
+        icon: '🛡️',
+        name: 'Focus Guardian',
+        desc: 'Protected deep work',
+        unlocked: focusTimerRunning || focusTimerSeconds < 15 * 60,
+      },
+      {
+        id: 'streak',
+        icon: '🔥',
+        name: `${mindfulStreak}d Streak`,
+        desc: 'Consistent impulse control',
+        unlocked: mindfulStreak >= 1,
+      },
+    ],
+    [totalShorts, dailyLimit, focusTimerRunning, focusTimerSeconds, mindfulStreak],
+  );
 
-  const milestones = [
-    {
-      id: 'cap',
-      icon: '🎯',
-      name: 'Cap Champion',
-      desc: 'Inside daily target',
-      unlocked: totalShorts <= dailyLimit,
-    },
-    {
-      id: 'zen',
-      icon: '🧘',
-      name: 'Zen Master',
-      desc: 'Used Craving Reset',
-      unlocked: true,
-    },
-    {
-      id: 'shield',
-      icon: '🛡️',
-      name: 'Focus Guardian',
-      desc: 'Protected deep work',
-      unlocked: focusTimerRunning || focusTimerSeconds < 15 * 60,
-    },
-    {
-      id: 'streak',
-      icon: '🔥',
-      name: `${mindfulStreak}d Streak`,
-      desc: 'Consistent impulse control',
-      unlocked: mindfulStreak >= 1,
-    },
-  ];
-
-  const groundingSteps = [
-    {
-      num: 5,
-      sense: '👀 SEE',
-      title: 'Acknowledge 5 things you can see',
-      prompt: 'Look around your room or space. Notice the shapes, colors, or shadows of 5 objects.',
-    },
-    {
-      num: 4,
-      sense: '✋ FEEL',
-      title: 'Acknowledge 4 things you can touch',
-      prompt: 'Feel your feet on the floor, the texture of your clothing, the chair beneath you, or the cool air.',
-    },
-    {
-      num: 3,
-      sense: '👂 HEAR',
-      title: 'Acknowledge 3 sounds you can hear',
-      prompt: 'Listen for subtle noises: the hum of electronics, distant chatter, your breath, or outdoor ambience.',
-    },
-    {
-      num: 2,
-      sense: '👃 SMELL',
-      title: 'Acknowledge 2 things you can smell',
-      prompt: 'Take two conscious inhalations through your nose. Notice any ambient scent in the air.',
-    },
-    {
-      num: 1,
-      sense: '👅 TASTE',
-      title: 'Acknowledge 1 thing you can taste',
-      prompt: 'Swallow, relax your jaw, or take a sip of cool water. Feel your prefrontal cortex return to clarity.',
-    },
-  ];
-
-  const themeColors: Record<ThemeAccent, {
-    primary: string;
-    primaryDark: string;
-    glow: string;
-    accentGlow: string;
-    border: string;
-    surface: string;
-    surfaceRaised: string;
-    background: string;
-    hairline: string;
-    actionFill: string;
-    actionText: string;
-    subtext: string;
-    name: string;
-    tagline: string;
-    iconName: IconName;
-    previewBadge: string;
-  }> = {
-    mint: {
-      primary: '#6ee3ad',
-      primaryDark: '#34d399',
-      glow: 'rgba(110, 227, 173, 0.16)',
-      accentGlow: 'rgba(110, 227, 173, 0.32)',
-      border: 'rgba(110, 227, 173, 0.45)',
-      surface: '#09130e',
-      surfaceRaised: '#112019',
-      background: '#030705',
-      hairline: '#192d23',
-      actionFill: '#132b1e',
-      actionText: '#e8fff4',
-      subtext: '#76a38b',
-      name: 'Obsidian Mint',
-      tagline: 'Deep Zen Clarity',
-      iconName: 'sparkle',
-      previewBadge: '🌱',
-    },
-    emerald: {
-      primary: '#6ee3ad',
-      primaryDark: '#34d399',
-      glow: 'rgba(110, 227, 173, 0.16)',
-      accentGlow: 'rgba(110, 227, 173, 0.32)',
-      border: 'rgba(110, 227, 173, 0.45)',
-      surface: '#09130e',
-      surfaceRaised: '#112019',
-      background: '#030705',
-      hairline: '#192d23',
-      actionFill: '#132b1e',
-      actionText: '#e8fff4',
-      subtext: '#76a38b',
-      name: 'Obsidian Mint',
-      tagline: 'Deep Zen Clarity',
-      iconName: 'sparkle',
-      previewBadge: '🌱',
-    },
-    cyan: {
-      primary: '#38bdf8',
-      primaryDark: '#0284c7',
-      glow: 'rgba(56, 189, 248, 0.16)',
-      accentGlow: 'rgba(56, 189, 248, 0.32)',
-      border: 'rgba(56, 189, 248, 0.45)',
-      surface: '#07121a',
-      surfaceRaised: '#0d1d2b',
-      background: '#02080d',
-      hairline: '#152e42',
-      actionFill: '#0c2538',
-      actionText: '#e0f2fe',
-      subtext: '#6594b2',
-      name: 'Cyber Sky',
-      tagline: 'Electric Flow State',
-      iconName: 'wave',
-      previewBadge: '⚡',
-    },
-    amethyst: {
-      primary: '#c084fc',
-      primaryDark: '#9333ea',
-      glow: 'rgba(192, 132, 252, 0.16)',
-      accentGlow: 'rgba(192, 132, 252, 0.32)',
-      border: 'rgba(192, 132, 252, 0.45)',
-      surface: '#12091c',
-      surfaceRaised: '#1c102b',
-      background: '#07030c',
-      hairline: '#2b1842',
-      actionFill: '#26133c',
-      actionText: '#f3e8ff',
-      subtext: '#9978b8',
-      name: 'Amethyst Aura',
-      tagline: 'Mystic Calm & Depth',
-      iconName: 'zen',
-      previewBadge: '🔮',
-    },
-    amber: {
-      primary: '#fbbf24',
-      primaryDark: '#d97706',
-      glow: 'rgba(251, 191, 36, 0.16)',
-      accentGlow: 'rgba(251, 191, 36, 0.32)',
-      border: 'rgba(251, 191, 36, 0.45)',
-      surface: '#161005',
-      surfaceRaised: '#221908',
-      background: '#0a0702',
-      hairline: '#36280d',
-      actionFill: '#30220a',
-      actionText: '#fef3c7',
-      subtext: '#b09363',
-      name: 'Solar Amber',
-      tagline: 'Vitality & Focus',
-      iconName: 'flame',
-      previewBadge: '☀️',
-    },
-    rose: {
-      primary: '#fb7185',
-      primaryDark: '#e11d48',
-      glow: 'rgba(251, 113, 133, 0.16)',
-      accentGlow: 'rgba(251, 113, 133, 0.32)',
-      border: 'rgba(251, 113, 133, 0.45)',
-      surface: '#17070b',
-      surfaceRaised: '#240d14',
-      background: '#0a0205',
-      hairline: '#38141f',
-      actionFill: '#32111c',
-      actionText: '#ffe4e6',
-      subtext: '#b56f80',
-      name: 'Neon Rose',
-      tagline: 'Radical Awareness',
-      iconName: 'target',
-      previewBadge: '🌹',
-    },
-    monochrome: {
-      primary: '#f9f8f9',
-      primaryDark: '#94a3b8',
-      glow: 'rgba(255, 255, 255, 0.12)',
-      accentGlow: 'rgba(255, 255, 255, 0.28)',
-      border: 'rgba(255, 255, 255, 0.35)',
-      surface: '#111111',
-      surfaceRaised: '#1c1c1c',
-      background: '#050505',
-      hairline: '#2a2a2a',
-      actionFill: '#242424',
-      actionText: '#ffffff',
-      subtext: '#9e9e9e',
-      name: 'Pure Titanium',
-      tagline: 'Brutalist Minimal',
-      iconName: 'moon',
-      previewBadge: '⚪',
-    },
-  };
-
-  const currentTheme = themeColors[themeAccent] || themeColors.mint;
+  const currentTheme = useMemo(
+    () => THEME_COLORS[themeAccent] || THEME_COLORS.mint,
+    [themeAccent],
+  );
 
   useEffect(() => {
     try {
@@ -1511,26 +1724,12 @@ function App() {
   }, [currentTheme.background]);
 
   // Zen Level & Attention Mastery
-  const getZenLevel = (xp: number) => {
-    if (xp >= 1200) return { level: 5, title: 'Zen Grandmaster', icon: '🌟', min: 1200, max: 2000 };
-    if (xp >= 700) return { level: 4, title: 'Attention Sovereign', icon: '👑', min: 700, max: 1200 };
-    if (xp >= 350) return { level: 3, title: 'Dopamine Alchemist', icon: '🔮', min: 350, max: 700 };
-    if (xp >= 150) return { level: 2, title: 'Feed Resistor', icon: '🛡️', min: 150, max: 350 };
-    return { level: 1, title: 'Mindful Spark', icon: '🌱', min: 0, max: 150 };
-  };
-  const zenLevel = getZenLevel(zenXp);
+  const zenLevel = useMemo(() => getZenLevel(zenXp), [zenXp]);
   const xpInCurrentLevel = zenXp - zenLevel.min;
   const xpNeededForLevel = zenLevel.max - zenLevel.min;
   const xpPercent = Math.min(100, Math.round((xpInCurrentLevel / xpNeededForLevel) * 100));
 
-  // Stroop Cognitive Conflict Trials
-  const STROOP_TRIALS = [
-    { text: 'BLUE', color: '#38d39f', colorName: 'Emerald' },
-    { text: 'RED', color: '#22d3ee', colorName: 'Cyan' },
-    { text: 'AMBER', color: '#c084fc', colorName: 'Amethyst' },
-    { text: 'GREEN', color: '#fbbf24', colorName: 'Amber' },
-    { text: 'CYAN', color: '#38d39f', colorName: 'Emerald' },
-  ];
+
 
   const handleStroopAnswer = (chosenColorName: string) => {
     const currentTrial = STROOP_TRIALS[stroopRound % STROOP_TRIALS.length];
@@ -1554,83 +1753,11 @@ function App() {
     setStroopFinished(false);
   };
 
-  // 24-Hour Dopamine Clock Analysis
-  const getHourDopamineProfile = (h: number) => {
-    if (h >= 6 && h < 11) {
-      return {
-        period: 'Morning Awakening & Focus',
-        risk: 'Low Risk · High Willpower',
-        color: '#38d39f',
-        icon: '☀️',
-        tip: 'Cortisol awakening response primes natural clarity. Keep short feeds locked during this sacred window.',
-      };
-    }
-    if (h >= 11 && h < 14) {
-      return {
-        period: 'Peak Execution Window',
-        risk: 'Optimal Productivity',
-        color: '#22d3ee',
-        icon: '🎯',
-        tip: 'High executive stamina. Perfect time for deep work sprints before the afternoon energy dip.',
-      };
-    }
-    if (h >= 14 && h < 18) {
-      return {
-        period: 'Afternoon Slump & Vulnerability',
-        risk: 'High Vulnerability Spike',
-        color: '#fbbf24',
-        icon: '⚡',
-        tip: 'Natural circadian dip in core temperature & dopamine. Brain seeks instant gratification. Use Focus Shield.',
-      };
-    }
-    if (h >= 18 && h < 22) {
-      return {
-        period: 'Twilight Leisure & Social',
-        risk: 'Moderate Risk',
-        color: '#a78bfa',
-        icon: '🌇',
-        tip: 'Conscious wind-down time. Choose books, walks, or real conversations over mindless vertical swipes.',
-      };
-    }
-    return {
-      period: 'Melatonin Guard & Sleep Recovery',
-      risk: 'Critical Disruption Zone',
-      color: '#f87171',
-      icon: '🌙',
-      tip: 'Short-form rapid video suppresses melatonin synthesis by up to 90 min. Keep phone away from bed.',
-    };
-  };
+
 
   const selectedHourProfile = getHourDopamineProfile(selectedDopamineHour);
 
-  // Trigger Details & Behavioral Hacks
-  const TRIGGER_DATA: Record<TriggerType, { label: string; icon: string; advice: string }> = {
-    boredom: {
-      label: 'Boredom',
-      icon: '🥱',
-      advice: 'Boredom is the brain seeking stimulation. Channel it into a 2-minute physical stretch or hydration.',
-    },
-    stress: {
-      label: 'Stress & Anxiety',
-      icon: '😓',
-      advice: 'Doomscrolling adds cognitive cortisol. Use the 4-4-4 Box Breathing reset to down-regulate your nervous system.',
-    },
-    procrastination: {
-      label: 'Procrastination',
-      icon: '⏳',
-      advice: 'Try the 2-Minute Rule: commit to doing just 120 seconds of your pending task. Starting breaks the freeze.',
-    },
-    habit: {
-      label: 'Muscle Memory',
-      icon: '🔁',
-      advice: 'Your thumb unlocked out of reflex. The Mindful Floating HUD is here to make the invisible visible.',
-    },
-    fomo: {
-      label: 'FOMO',
-      icon: '👥',
-      advice: 'Algorithms manufacture synthetic urgency. Nothing happening on social media warrants losing your focus today.',
-    },
-  };
+
 
   const handleLogTrigger = (t: TriggerType) => {
     setTriggersLog(prev => ({ ...prev, [t]: prev[t] + 1 }));
@@ -1644,8 +1771,8 @@ function App() {
   };
 
 
-  // Digital Wellbeing Vitality Score (0-100)
-  const calculateVitalityScore = () => {
+  // Digital Wellbeing Vitality Score (0-100) (memoized)
+  const vitalityScore = useMemo(() => {
     let score = 100;
     if (totalShorts > dailyLimit) {
       const over = totalShorts - dailyLimit;
@@ -1662,38 +1789,7 @@ function App() {
       score += 5;
     }
     return Math.max(10, Math.min(100, Math.round(score)));
-  };
-
-  const vitalityScore = calculateVitalityScore();
-
-  const intentionsList = [
-    { id: '1', title: 'Deep Work First, Feeds Later', icon: '🛡️' },
-    { id: '2', title: 'Conscious Intent, No Idle Swipes', icon: '🌿' },
-    { id: '3', title: 'Screens Off 1hr Before Sleep', icon: '🌙' },
-    { id: '4', title: 'Three Breaths Before Unlocking', icon: '🧘' },
-  ];
-
-  const soundscapesList = [
-    { id: 'rain' as FocusSoundscape, name: 'Gentle Rain', icon: '🌧️', desc: 'Calming rain drops' },
-    { id: 'forest' as FocusSoundscape, name: 'Pine Forest', icon: '🌲', desc: 'Wind through trees' },
-    { id: 'waves' as FocusSoundscape, name: 'Ocean Waves', icon: '🌊', desc: 'Rhythmic surf' },
-    { id: 'cafe' as FocusSoundscape, name: 'Quiet Library', icon: '☕', desc: 'Soft ambient hum' },
-    { id: 'cosmic' as FocusSoundscape, name: 'Cosmic Binaural', icon: '🌌', desc: '432Hz deep focus' },
-  ];
-
-  const moodsList = [
-    { id: 'zen' as UserMood, label: 'Zen & Calm', icon: '😊', tip: 'Your mind is present and centered.' },
-    { id: 'focused' as UserMood, label: 'Laser Focused', icon: '🎯', tip: 'Keep this deep momentum going.' },
-    { id: 'distracted' as UserMood, label: 'Mildly Restless', icon: '😐', tip: 'Take a sip of water or 1m breath.' },
-    { id: 'craving' as UserMood, label: 'Overstimulated', icon: '🌊', tip: 'Surf the wave with Craving SOS.' },
-  ];
-
-  // Format seconds into MM:SS
-  const formatTimer = (sec: number) => {
-    const m = Math.floor(sec / 60);
-    const s = sec % 60;
-    return `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
-  };
+  }, [totalShorts, dailyLimit, estMinutes, dailyTimeLimitMin, mindfulStreak, bedtimeShield]);
 
   // Render Intro & Permissions Screen - Horizontal Multi-Slide Carousel
   const renderIntroScreen = () => {
@@ -2026,7 +2122,7 @@ function App() {
 
   // Render Dashboard / Counter Tab (Clean, Minimal, Focused on Daily Essentials)
   const renderCounterTab = () => (
-    <ScrollView contentContainerStyle={styles.content}>
+    <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false} removeClippedSubviews={true} overScrollMode="never">
       {/* Top App Header with Adaptive Greeting & Live Service Status */}
       <View style={styles.dashboardHeader}>
         <View>
@@ -2441,7 +2537,7 @@ function App() {
 
   // Render Timers & Limits Tab
   const renderTimersTab = () => (
-    <ScrollView contentContainerStyle={styles.content}>
+    <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false} removeClippedSubviews={true} overScrollMode="never">
       <Text style={styles.tabScreenTitle}>Limits & Insights</Text>
       <Text style={styles.tabScreenSubtitle}>
         Set deliberate habit boundaries and observe your circadian attention rhythm.
@@ -2591,7 +2687,7 @@ function App() {
         </View>
 
         {/* 24-Hour Scrollable Hourly Bar Dial */}
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.hourlyBarRow}>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.hourlyBarRow} nestedScrollEnabled={true} overScrollMode="never">
           {Array.from({ length: 24 }).map((_, h) => {
             const prof = getHourDopamineProfile(h);
             const isSelected = selectedDopamineHour === h;
@@ -2653,7 +2749,7 @@ function App() {
           Logging the emotion behind the impulse disarms unconscious muscle memory.
         </Text>
 
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.triggerPillsRow}>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.triggerPillsRow} nestedScrollEnabled={true} overScrollMode="never">
           {(Object.keys(TRIGGER_DATA) as TriggerType[]).map(t => {
             const data = TRIGGER_DATA[t];
             const isSelected = selectedTrigger === t;
@@ -2868,7 +2964,7 @@ function App() {
 
   // Render Block App & Focus Tab
   const renderBlockTab = () => (
-    <ScrollView contentContainerStyle={styles.content}>
+    <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false} removeClippedSubviews={true} overScrollMode="never">
       <Text style={styles.tabScreenTitle}>Block & Focus Shield</Text>
       <Text style={styles.tabScreenSubtitle}>
         Instantly lock distracting video feeds when you need deep focus or rest.
@@ -3374,7 +3470,7 @@ function App() {
 
   // Render Settings Tab
   const renderSettingsTab = () => (
-    <ScrollView contentContainerStyle={styles.content}>
+    <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false} removeClippedSubviews={true} overScrollMode="never">
       <Text style={styles.tabScreenTitle}>Settings & Wellbeing Growth</Text>
       <Text style={styles.tabScreenSubtitle}>
         Cultivate attention mastery, review your vitality score, and manage device permissions.
@@ -3499,7 +3595,7 @@ function App() {
           <Text style={styles.intentionTag}>Conscious Intent</Text>
         </View>
         <Text style={styles.intentionText}>"{selectedIntention}"</Text>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.intentionPillsRow}>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.intentionPillsRow} nestedScrollEnabled={true} overScrollMode="never">
           {intentionsList.map(item => (
             <Pressable
               key={item.id}
@@ -3936,10 +4032,46 @@ function App() {
                 },
               ]}
             >
-              {activeTab === 'counter' && renderCounterTab()}
-              {activeTab === 'timers' && renderTimersTab()}
-              {activeTab === 'block' && renderBlockTab()}
-              {activeTab === 'settings' && renderSettingsTab()}
+              {visitedTabs.counter && (
+                <View
+                  style={[
+                    styles.tabContentScreen,
+                    activeTab !== 'counter' && styles.tabContentHidden,
+                  ]}
+                >
+                  {renderCounterTab()}
+                </View>
+              )}
+              {visitedTabs.timers && (
+                <View
+                  style={[
+                    styles.tabContentScreen,
+                    activeTab !== 'timers' && styles.tabContentHidden,
+                  ]}
+                >
+                  {renderTimersTab()}
+                </View>
+              )}
+              {visitedTabs.block && (
+                <View
+                  style={[
+                    styles.tabContentScreen,
+                    activeTab !== 'block' && styles.tabContentHidden,
+                  ]}
+                >
+                  {renderBlockTab()}
+                </View>
+              )}
+              {visitedTabs.settings && (
+                <View
+                  style={[
+                    styles.tabContentScreen,
+                    activeTab !== 'settings' && styles.tabContentHidden,
+                  ]}
+                >
+                  {renderSettingsTab()}
+                </View>
+              )}
             </Animated.View>
 
             {/* Quick Action Dismiss Backdrop */}
@@ -4123,10 +4255,10 @@ function App() {
                   style={[
                     styles.dockTouchRipple,
                     {
-                      left: rippleCoord.x - 25,
-                      top: rippleCoord.y - 25,
                       opacity: rippleOpacity,
                       transform: [
+                        { translateX: rippleX },
+                        { translateY: rippleY },
                         {
                           scale: rippleAnim.interpolate({
                             inputRange: [0, 1],
@@ -5198,6 +5330,12 @@ const styles = StyleSheet.create({
   safeArea: { flex: 1, backgroundColor: '#000000' },
   mainContainer: { flex: 1, backgroundColor: '#000000' },
   mainAnimatedContainer: { flex: 1 },
+  tabContentScreen: {
+    flex: 1,
+  },
+  tabContentHidden: {
+    display: 'none',
+  },
   content: { paddingHorizontal: 16, paddingTop: 14, paddingBottom: 115 },
 
   // Visual Assets & Banner Styles
@@ -6768,6 +6906,8 @@ const styles = StyleSheet.create({
   // Touch Ripple Wave
   dockTouchRipple: {
     position: 'absolute',
+    left: -25,
+    top: -25,
     width: 50,
     height: 50,
     borderRadius: 25,

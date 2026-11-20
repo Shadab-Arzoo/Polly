@@ -74,7 +74,25 @@ jobs:
           - **Change**: {commit_title}
           - **Commit**: `{sha}`
 
-          ### ✨ Major Enhancements:
+          ### ⚡ Performance & Smoothness Overhaul:
+          - **Ultra-Responsive 60/120fps Gesture Tracking**:
+            - Converted continuous Liquid Dock scrubbing to direct 1:1 hardware value updates (`.setValue()`), eliminating native Animated spring queue contention and touch input latency.
+            - Swapped root React state updates during gestures with native animated drivers, providing silky smooth, instantaneous dock tracking.
+          - **Eliminated Continuous Root Re-Render Loop**:
+            - Replaced unconditional 1.5s timer state churn with smart deep/shallow diff checking. Zero virtual DOM re-renders when data is unchanged.
+            - AppState-aware lifecycle: automatically pauses polling when app is backgrounded, saving CPU cycles and battery.
+          - **Instant Tab Transitions via Lazy Virtualization**:
+            - Visited tab screens remain mounted in memory with native display toggling, preserving user scroll positions and eliminating transition latency (0ms switch delay).
+          - **Memoized Micro-Icon System**:
+            - Wrapped `AppIcon` in `React.memo` to skip re-evaluating hundreds of nested Views and inline styles across the app.
+          - **Hoisted Static Data & Memoized Calculations**:
+            - Hoisted theme dictionaries, sensory steps, and trial sets outside component render scope; wrapped heavy statistical and streak reductions in `useMemo`.
+          - **Native Android Optimizations**:
+            - Cached AccessibilityManager system IPC queries in `PrototypeSettingsModule.kt`.
+            - Enabled Android hardware subview clipping (`removeClippedSubviews`) and removed overscroll calculations on all ScrollViews.
+            - Enabled Gradle parallel build execution (`org.gradle.parallel=true`).
+
+          ### ✨ Major Features & Enhancements:
           - **Sanctuary Atmosphere Theme System**:
             - 6 full dynamic palettes: **Obsidian Mint** (Zen Clarity), **Cyber Sky** (Electric Flow), **Amethyst Aura** (Mystic Depth), **Solar Amber** (Vitality & Focus), **Neon Rose** (Radical Awareness), and **Pure Titanium** (Brutalist Minimal).
             - Real-time whole-app immersion: Android status bar, screen backdrops, card surfaces, and hairlines dynamically adapt to the active atmosphere.
