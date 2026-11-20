@@ -278,7 +278,7 @@ function App() {
   const triggerIconBounce = (idx: number) => {
     Animated.sequence([
       Animated.spring(iconBounceAnims[idx], {
-        toValue: 1.32,
+        toValue: 1.25,
         friction: 3.5,
         tension: 180,
         useNativeDriver: true,
@@ -463,9 +463,9 @@ function App() {
       const dist = Math.abs(fingerX - tabCenter) / slotW;
       // Parabolic falloff factor
       const factor = Math.max(0, 1 - Math.min(1, dist * 0.72));
-      const targetScale = 1.0 + factor * 0.30; // up to 1.30x at peak
-      const targetY = -factor * 8.5; // lifts up to -8.5dp
-      const tiltVal = Math.max(-8, Math.min(8, velocityX * 10));
+      const targetScale = 1.0 + factor * 0.22; // up to 1.22x at peak
+      const targetY = -factor * 5.0; // lifts up to -5.0dp without clipping top border
+      const tiltVal = Math.max(-6, Math.min(6, velocityX * 8));
 
       Animated.parallel([
         Animated.spring(tabScaleAnims[i], {
@@ -493,13 +493,13 @@ function App() {
   const resetDockRestingState = (targetIdx: number) => {
     tabScaleAnims.forEach((anim, i) => {
       Animated.spring(anim, {
-        toValue: i === targetIdx ? 1.12 : 1.0,
+        toValue: i === targetIdx ? 1.08 : 1.0,
         friction: 6,
         tension: 110,
         useNativeDriver: true,
       }).start();
       Animated.spring(tabTranslateYAnims[i], {
-        toValue: i === targetIdx ? -3.5 : 0,
+        toValue: i === targetIdx ? -2.5 : 0,
         friction: 6,
         tension: 110,
         useNativeDriver: true,
@@ -579,7 +579,7 @@ function App() {
         return {
           icon: 'timer' as IconName,
           title: 'Habit Limits',
-          sub: `${dailyLimit} reels · ${dailyTimeLimitMin}m daily time cap`,
+          sub: `${dailyLimit} reels · ${dailyTimeLimitMin}m daily cap`,
           accent: currentTheme.primary,
         };
       case 2:
@@ -587,15 +587,15 @@ function App() {
           icon: 'shield' as IconName,
           title: 'Focus Shield',
           sub: focusTimerRunning
-            ? `${formatTimer(focusTimerSeconds)} remaining · Feeds locked`
-            : 'Deep focus shield ready to activate',
+            ? `${formatTimer(focusTimerSeconds)} remaining · Locked`
+            : 'Shield ready to activate',
           accent: focusTimerRunning ? '#ef4444' : currentTheme.primary,
         };
       case 3:
         return {
           icon: 'settings' as IconName,
           title: 'Wellbeing Growth',
-          sub: `Lvl ${zenLevel.level} Zen · ${zenXp} XP · System Health`,
+          sub: `Lvl ${zenLevel.level} Zen · ${zenXp} XP`,
           accent: currentTheme.primary,
         };
       default:
@@ -621,7 +621,6 @@ function App() {
         const screenX = gesture.x0 || evt.nativeEvent.pageX;
         const dockX = getDockRelativeX(screenX, evt.nativeEvent.locationX);
         const idx = getTabIndexFromDockX(dockX);
-        const fractionalPos = getFractionalPosFromDockX(dockX);
 
         currentHoveredIdxRef.current = idx;
         setHoveredTabIndex(idx);
@@ -654,27 +653,11 @@ function App() {
           useNativeDriver: true,
         }).start();
 
-        // Reveal Scrub Tooltip Capsule
-        tooltipX.setValue(fractionalPos);
-        Animated.parallel([
-          Animated.spring(tooltipScale, {
-            toValue: 1.0,
-            friction: 6,
-            tension: 130,
-            useNativeDriver: true,
-          }),
-          Animated.timing(tooltipOpacity, {
-            toValue: 1,
-            duration: 140,
-            useNativeDriver: true,
-          }),
-        ]).start();
-
         applyContinuousFisheye(dockX, 0);
 
-        // Fluid spring of slider towards current thumb touch point
+        // Fluid spring of slider towards current tab on touch down
         Animated.spring(sliderAnim, {
-          toValue: fractionalPos,
+          toValue: idx,
           friction: 7,
           tension: 160,
           useNativeDriver: true,
@@ -690,6 +673,23 @@ function App() {
         const dockX = getDockRelativeX(screenX, evt.nativeEvent.locationX);
         const idx = getTabIndexFromDockX(dockX);
         const fractionalPos = getFractionalPosFromDockX(dockX);
+
+        // Smoothly reveal scrub preview tooltip capsule when scrubbing starts
+        if (Math.abs(gesture.dx) > 3 || Math.abs(gesture.dy) > 3) {
+          Animated.parallel([
+            Animated.spring(tooltipScale, {
+              toValue: 1.0,
+              friction: 6,
+              tension: 130,
+              useNativeDriver: true,
+            }),
+            Animated.timing(tooltipOpacity, {
+              toValue: 1,
+              duration: 120,
+              useNativeDriver: true,
+            }),
+          ]).start();
+        }
 
         // Continuous Fluid Tracking for Slider & Tooltip right under thumb
         Animated.spring(sliderAnim, {
@@ -733,7 +733,6 @@ function App() {
 
         // Switch to the released tab
         const chosenTab = TABS[finalIdx].id;
-        setActiveTab(chosenTab);
         setHoveredTabIndex(null);
         triggerDockHaptic();
 
@@ -759,30 +758,33 @@ function App() {
           }),
         ]).start();
 
-        // Snap slider cleanly into place with mercury bounce
-        Animated.parallel([
-          Animated.spring(sliderAnim, {
-            toValue: finalIdx,
-            friction: 6,
-            tension: 90,
-            useNativeDriver: true,
-          }),
-          Animated.sequence([
-            Animated.timing(sliderScaleX, {
-              toValue: 0.94,
-              duration: 70,
+        if (chosenTab !== activeTab) {
+          setActiveTab(chosenTab);
+        } else {
+          // Snap slider cleanly back into place if staying on same tab
+          Animated.parallel([
+            Animated.spring(sliderAnim, {
+              toValue: finalIdx,
+              friction: 6,
+              tension: 90,
               useNativeDriver: true,
             }),
-            Animated.spring(sliderScaleX, {
-              toValue: 1.0,
-              friction: 5,
-              tension: 120,
-              useNativeDriver: true,
-            }),
-          ]),
-        ]).start();
-
-        resetDockRestingState(finalIdx);
+            Animated.sequence([
+              Animated.timing(sliderScaleX, {
+                toValue: 0.94,
+                duration: 70,
+                useNativeDriver: true,
+              }),
+              Animated.spring(sliderScaleX, {
+                toValue: 1.0,
+                friction: 5,
+                tension: 120,
+                useNativeDriver: true,
+              }),
+            ]),
+          ]).start();
+          resetDockRestingState(finalIdx);
+        }
       },
       onPanResponderTerminate: () => {
         isDragActiveRef.current = false;
@@ -4003,10 +4005,10 @@ function App() {
                         translateX: tooltipX.interpolate({
                           inputRange: [0, 1, 2, 3],
                           outputRange: [
-                            -dockWidth * 0.375,
-                            -dockWidth * 0.125,
-                            dockWidth * 0.125,
-                            dockWidth * 0.375,
+                            -dockWidth * 0.22,
+                            -dockWidth * 0.08,
+                            dockWidth * 0.08,
+                            dockWidth * 0.22,
                           ],
                         }),
                       },
@@ -4029,7 +4031,7 @@ function App() {
                     <Text style={[styles.dockTooltipTitle, { color: getScrubTooltipInfo(hoveredTabIndex ?? TAB_INDEX_MAP[activeTab]).accent }]}>
                       {getScrubTooltipInfo(hoveredTabIndex ?? TAB_INDEX_MAP[activeTab]).title}
                     </Text>
-                    <Text style={styles.dockTooltipSub} numberOfLines={1}>
+                    <Text style={[styles.dockTooltipSub, { color: currentTheme.subtext }]} numberOfLines={1}>
                       {getScrubTooltipInfo(hoveredTabIndex ?? TAB_INDEX_MAP[activeTab]).sub}
                     </Text>
                   </View>
@@ -4059,7 +4061,6 @@ function App() {
                       },
                     ],
                     backgroundColor: currentTheme.glow,
-                    borderColor: currentTheme.primary,
                   },
                 ]}
               />
@@ -4092,10 +4093,10 @@ function App() {
                 {...dockPanResponder.panHandlers}
               >
                 {/* Specular Top Rim Reflection Line */}
-                <View style={styles.dockSpecularHighlight} />
+                <View pointerEvents="none" style={styles.dockSpecularHighlight} />
 
                 {/* Frosted Curved Sheen */}
-                <View style={styles.dockUpperSheen} />
+                <View pointerEvents="none" style={styles.dockUpperSheen} />
 
                 {/* Optical Crystal Shimmer Light Wave */}
                 <Animated.View
@@ -4141,6 +4142,7 @@ function App() {
 
                 {/* Sliding Mercury Fluid Indicator Pill */}
                 <Animated.View
+                  pointerEvents="none"
                   style={[
                     styles.liquidSliderPill,
                     {
@@ -4190,7 +4192,7 @@ function App() {
                         {
                           width: (dockWidth - 12) / 4,
                           transform: [
-                            { scale: Animated.multiply(tabScaleAnims[idx], iconBounceAnims[idx]) },
+                            { scale: tabScaleAnims[idx] },
                             { translateY: tabTranslateYAnims[idx] },
                             {
                               rotate: tabTiltAnims[idx].interpolate({
@@ -4202,10 +4204,18 @@ function App() {
                         },
                       ]}
                     >
-                      <View style={styles.dockIconContainer}>
+                      <Animated.View
+                        style={[
+                          styles.dockIconContainer,
+                          {
+                            transform: [{ scale: iconBounceAnims[idx] }],
+                          },
+                        ]}
+                      >
                         {/* Soft Glowing Neon Ring behind Active Icon */}
                         {isTabActive && (
                           <Animated.View
+                            pointerEvents="none"
                             style={[
                               styles.dockActiveIconGlowRing,
                               {
@@ -4228,7 +4238,7 @@ function App() {
                               ? currentTheme.primary
                               : isTabHovered
                               ? '#ffffff'
-                              : '#7d9588'
+                              : currentTheme.subtext
                           }
                         />
 
@@ -4277,7 +4287,7 @@ function App() {
                             </Text>
                           </View>
                         )}
-                      </View>
+                      </Animated.View>
 
                       <Text
                         style={[
@@ -4286,7 +4296,7 @@ function App() {
                             ? [styles.dockTabLabelActive, { color: currentTheme.primary }]
                             : isTabHovered
                             ? styles.dockTabLabelHovered
-                            : styles.dockTabLabelInactive,
+                            : [styles.dockTabLabelInactive, { color: currentTheme.subtext }],
                         ]}
                         numberOfLines={1}
                       >
@@ -6474,11 +6484,10 @@ const styles = StyleSheet.create({
     position: 'absolute',
     top: -4,
     bottom: -4,
-    left: 18,
-    right: 18,
+    left: 0,
     borderRadius: 38,
-    borderWidth: 1,
-    opacity: 0.35,
+    borderWidth: 0,
+    opacity: 0.45,
   },
   liquidDockPill: {
     width: '100%',
@@ -6543,7 +6552,8 @@ const styles = StyleSheet.create({
     paddingVertical: 4,
   },
   dockIconContainer: {
-    height: 26,
+    width: 36,
+    height: 30,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -6561,11 +6571,12 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   dockTabLabelInactive: {
-    color: '#6c8477',
+    fontWeight: '600',
   },
   dockActiveDroplet: {
     position: 'absolute',
-    bottom: 4,
+    bottom: 3,
+    alignSelf: 'center',
     width: 4,
     height: 4,
     borderRadius: 2,
@@ -6575,6 +6586,7 @@ const styles = StyleSheet.create({
   dockScrubTooltip: {
     position: 'absolute',
     top: -50,
+    alignSelf: 'center',
     borderRadius: 16,
     borderWidth: 1.2,
     paddingHorizontal: 12,
@@ -6601,7 +6613,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   dockTooltipTextWrap: {
-    maxWidth: 240,
+    maxWidth: 200,
   },
   dockTooltipTitle: {
     fontSize: 11,
@@ -6609,13 +6621,13 @@ const styles = StyleSheet.create({
     letterSpacing: 0.3,
   },
   dockTooltipSub: {
-    color: '#a0b5a8',
     fontSize: 10,
     fontWeight: '500',
   },
   dockTooltipArrow: {
     position: 'absolute',
     bottom: -6,
+    alignSelf: 'center',
     width: 0,
     height: 0,
     borderLeftWidth: 6,
@@ -6628,8 +6640,8 @@ const styles = StyleSheet.create({
   // Micro Status Badges on Dock Tabs
   dockMicroBadge: {
     position: 'absolute',
-    top: -5,
-    right: -10,
+    top: -4,
+    right: -6,
     paddingHorizontal: 4,
     paddingVertical: 0.5,
     borderRadius: 7,
@@ -6648,16 +6660,16 @@ const styles = StyleSheet.create({
   },
   dockMicroDot: {
     position: 'absolute',
-    top: -3,
-    right: -5,
+    top: -2,
+    right: -3,
     width: 6,
     height: 6,
     borderRadius: 3,
   },
   dockMicroShieldActiveBadge: {
     position: 'absolute',
-    top: -5,
-    right: -12,
+    top: -4,
+    right: -8,
     backgroundColor: 'rgba(239, 68, 68, 0.25)',
     borderColor: '#ef4444',
     borderWidth: 1,
@@ -6765,9 +6777,10 @@ const styles = StyleSheet.create({
   // Active Icon Glow Ring
   dockActiveIconGlowRing: {
     position: 'absolute',
-    width: 34,
-    height: 34,
-    borderRadius: 17,
+    alignSelf: 'center',
+    width: 32,
+    height: 32,
+    borderRadius: 16,
     borderWidth: 1,
   },
   // Legacy Tab Bar aliases for backwards compatibility
